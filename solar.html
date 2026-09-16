@@ -1,66 +1,4 @@
-#!/usr/bin/env python3
-"""Live department graph. Reads ../brain and ../marketing-brain, writes index.html. Run from hq/."""
-import re, subprocess, datetime, pathlib, html, json, os
-HQ=pathlib.Path(__file__).resolve().parent.parent
-DEPTS={"sales":HQ.parent/"brain","marketing":HQ.parent/"marketing-brain"}
-# allow CI checkout layout: hq/deps/brain, hq/deps/marketing-brain
-for k,p in list(DEPTS.items()):
-    alt=HQ/"deps"/("brain" if k=="sales" else "marketing-brain")
-    if not p.exists() and alt.exists(): DEPTS[k]=alt
-def sh(cmd,cwd):
-    try: return subprocess.check_output(cmd,cwd=cwd,shell=True,text=True,stderr=subprocess.DEVNULL).strip()
-    except Exception: return ""
-def esc(s): return html.escape(str(s))
-def stats(root):
-    md=list(root.rglob("*.md")); md=[m for m in md if ".git" not in m.parts]
-    blanks=sum(len(re.findall(r"<< ?fill",m.read_text(errors="ignore"))) for m in md)
-    recipes=[p.stem for p in (root/"do").glob("*.md")] if (root/"do").exists() else []
-    acts=(root/"live/actions.md"); open_n=closed_n=0
-    if acts.exists():
-        for l in acts.read_text().splitlines():
-            if "| OPEN |" in l: open_n+=1
-            elif "| CLOSED |" in l or "| DROPPED |" in l: closed_n+=1
-    last=sh("git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M'",root)
-    commits=sh("git rev-list --count HEAD",root)
-    return dict(files=len(md),blanks=blanks,recipes=recipes,open=open_n,closed=closed_n,last=last,commits=commits)
-S=stats(DEPTS["sales"]); M=stats(DEPTS["marketing"])
-# sales extras
-team=(DEPTS["sales"]/"ref/team.md").read_text(errors="ignore")
-agents=sum(1 for l in team.splitlines() if l.startswith("| ") and ("005Vn" in l or "not in Salesforce" in l) and "Team 2 agents" not in l)
-devs=sum(1 for l in (DEPTS["sales"]/"ref/developers.md").read_text(errors="ignore").splitlines() if l.startswith("| ") and "| Active |" in l)
-briefs=sorted((DEPTS["sales"]/"live/briefs").glob("2026-*.md")) if (DEPTS["sales"]/"live/briefs").exists() else []
-# marketing extras
-ideas=(DEPTS["marketing"]/"live/ideas.md").read_text(errors="ignore") if (DEPTS["marketing"]/"live/ideas.md").exists() else ""
-ideas_n=sum(1 for l in ideas.splitlines() if l.startswith("2026-"))
-ideas_unused=sum(1 for l in ideas.splitlines() if l.startswith("2026-") and "| UNUSED |" in l)
-plans=[p.stem for p in (DEPTS["marketing"]/"live/plans").glob("*.md")] if (DEPTS["marketing"]/"live/plans").exists() else []
-# cross links: marketing recipes that LOAD ../brain files
-edges={}
-for rp in (DEPTS["marketing"]/"do").glob("*.md"):
-    t=rp.read_text(errors="ignore")
-    for ref in re.findall(r"\.\./brain/([\w/.-]+)",t):
-        edges.setdefault(ref,set()).add(rp.stem)
-edge_rows=sorted(edges.items())
-# bots
-monday_log=pathlib.Path.home()/"Library/Logs/elysian-brain-monday.log"
-monday_last=datetime.datetime.fromtimestamp(monday_log.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if monday_log.exists() else "never"
-xai=subprocess.call("security find-generic-password -s xai-api-key >/dev/null 2>&1",shell=True)==0
-xai_credits=(pathlib.Path.home()/".config/xai/credits-ok").exists()
-engine=("Grok (xAI)" if xai_credits else "Grok key stored, no credits yet; running on Claude") if xai else "Claude headless (Grok key not set)"
-now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-data={"now":now,"engine":engine,"xai":xai,"xai_credits":xai_credits,
- "sales":{"commits":S["commits"],"last":S["last"],"agents":agents,"devs":devs,"recipes":len(S["recipes"]),"open":S["open"],"closed":S["closed"],"briefs":len(briefs),"blanks":S["blanks"],"monday_last":monday_last},
- "marketing":{"commits":M["commits"],"last":M["last"],"roles":len(M["recipes"]),"role_names":sorted(M["recipes"]),"ideas":ideas_n,"unused":ideas_unused,"plans":len(plans),"open":M["open"],"closed":M["closed"],"blanks":M["blanks"]},
- "edges":[{"file":r,"roles":sorted(v)} for r,v in edge_rows]}
-mk_log=pathlib.Path.home()/"Library/Logs/elysian-marketing-bot.log"
-data["marketing"]["bot_last"]=datetime.datetime.fromtimestamp(mk_log.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if mk_log.exists() else "scheduled, not yet run"
-# last grok run from marketing week.md stamps
-wk=(DEPTS["marketing"]/"live/week.md").read_text(errors="ignore") if (DEPTS["marketing"]/"live/week.md").exists() else ""
-gr=re.findall(r"<!-- grokbot (\S+) (\S+ \S+) tokens=(\d+) -->",wk)
-data["marketing"]["grok_last"]={"model":gr[-1][0],"when":gr[-1][1],"tokens":int(gr[-1][2])} if gr else None
-J=json.dumps(data)
-page="""<title>Moon Shelter</title>
+<title>Moon Shelter</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--bg:#04080C;--ink:#EAF2F3;--ink2:#8FA6AC;--dim:#4F636B;--line:#1B2F38;--teal:#39C9B6;--gold:#E0B45C;--green:#7BD3A0;--red:#F08C84}
@@ -209,7 +147,7 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
 <div class="foot"><span>Rebuilt on every commit in either brain · <a href="https://github.com/kamelhijawi/elysian-hq">kamelhijawi/elysian-hq</a></span><span id="engine"></span></div>
 </div>
 <script>
-const D=__DATA__;const $=s=>document.querySelector(s);
+const D={"now": "2026-09-16 09:39", "engine": "Grok (xAI)", "xai": true, "xai_credits": true, "sales": {"commits": "39", "last": "2026-09-16 08:44", "agents": 61, "devs": 7, "recipes": 7, "open": 7, "closed": 1, "briefs": 1, "blanks": 163, "monday_last": "2026-09-16 08:15"}, "marketing": {"commits": "8", "last": "2026-09-16 08:54", "roles": 5, "role_names": ["campaign-planner", "creative-director", "market-analyst", "media-planner", "reporter"], "ideas": 10, "unused": 9, "plans": 1, "open": 7, "closed": 0, "blanks": 42, "bot_last": "scheduled, not yet run", "grok_last": {"model": "grok-4.6", "when": "2026-09-16 08:54", "tokens": 339786}}, "edges": [{"file": "do/brand-ideas.md", "roles": ["creative-director"]}, {"file": "do/weekly-meeting.md", "roles": ["reporter"]}, {"file": "live/launches.md", "roles": ["campaign-planner"]}, {"file": "live/plan-2026-09-14.md", "roles": ["campaign-planner"]}, {"file": "live/week.md", "roles": ["market-analyst"]}, {"file": "ref/developers.md", "roles": ["campaign-planner", "market-analyst"]}, {"file": "ref/numbers.md", "roles": ["campaign-planner", "media-planner"]}, {"file": "ref/voice.md", "roles": ["creative-director"]}]};const $=s=>document.querySelector(s);
 $('#stamp').textContent='live · built '+D.now;$('#engine').textContent='engine: '+D.engine;
 const s=D.sales,m=D.marketing;
 $('#p-s-1').textContent=s.agents;$('#p-s-2').textContent=`${s.devs} developers · ${s.open} open actions`;$('#p-s-3').textContent=`${s.briefs} brief · ${s.blanks} blanks`;
@@ -223,13 +161,8 @@ $('#s-meta').textContent=`${s.commits} commits · last ${s.last} · Monday bot l
 $('#s-tiles').innerHTML=tile(s.agents,'agents')+tile(s.devs,'active developers')+tile(s.recipes,'recipes')+tile(s.open,'open actions',s.open>5?'warn':'')+tile(s.briefs,'Monday briefs')+tile(s.blanks,'blanks to fill','warn');
 $('#m-meta').textContent=`${m.commits} commits · last ${m.last} · Grok bot ${m.grok_last?('last run '+m.grok_last.when):'scheduled Sunday 08:00'}`;
 $('#m-tiles').innerHTML=tile(m.roles,'roles')+tile(m.ideas,'ideas in the bank')+tile(m.unused,'ideas unused','warn')+tile(m.plans,'plans issued')+tile(m.open,'open actions',m.open>5?'warn':'')+tile(m.blanks,'blanks to fill','warn');
-$('#edges').innerHTML=D.edges.map(e=>`<span class="chip">${e.file.replace(/^(ref|do|live)\\//,'')} <b>← ${e.roles.join(', ')}</b></span>`).join('');
+$('#edges').innerHTML=D.edges.map(e=>`<span class="chip">${e.file.replace(/^(ref|do|live)\//,'')} <b>← ${e.roles.join(', ')}</b></span>`).join('');
 // starfield
 function field(id,density,maxr){const c=$(id),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;x.clearRect(0,0,c.width,c.height);for(let i=0;i<Math.floor(c.width*c.height/density);i++){const r=Math.random();x.fillStyle=`rgba(${r>.92?'224,180,92':r>.85?'57,201,182':'200,225,235'},${(.2+Math.random()*.7).toFixed(2)})`;x.beginPath();x.arc(Math.random()*c.width,Math.random()*c.height,Math.random()*maxr+.2,0,7);x.fill();}}
 function stars(){field('#stars',7000,1.3);field('#stars2',16000,2.2)}stars();addEventListener('resize',stars);
 </script>
-"""
-page=page.replace("__DATA__",J)
-(HQ/"solar.html").write_text(page,encoding="utf-8")
-subprocess.call(["python3",str(HQ/"tools/build-orbit.py")])
-print(json.dumps({"engine":engine,"agents":agents,"edges":len(edge_rows),"grok_last":data["marketing"]["grok_last"]}))

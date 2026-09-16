@@ -11,7 +11,7 @@ def link(a,b,rel):
     if a in nodes and b in nodes and a!=b: links.append({"source":a,"target":b,"rel":rel})
 def cells(line): return [c.strip() for c in line.strip().strip("|").split("|")]
 # centre + departments
-add("orbit","Orbit","HQ","hq",16,"Elysian HQ")
+add("orbit","Moon Shelter","HQ","hq",16,"Elysian HQ · the centre")
 add("sales","Sales department","Department","sales",12,"brain/")
 add("marketing","Marketing department","Department","marketing",12,"marketing-brain/")
 link("orbit","sales","owns"); link("orbit","marketing","owns")
@@ -95,7 +95,7 @@ G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 counts={}
 for n in nodes.values(): counts[n["type"]]=counts.get(n["type"],0)+1
 J=json.dumps(G)
-page=r"""<title>Elysian Orbit</title>
+page=r"""<title>Moon Shelter</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--bg:#06090F;--ink:#EAF0F4;--ink2:#93A4B3;--dim:#56697A;--line:#1C2836;--teal:#39C9B6;--gold:#E0B45C}
@@ -137,7 +137,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 </style>
 <div id="g"></div>
 <div class="ui top">
-  <div><div class="brand">Elysian · HQ</div><h1>Orbit <span>live</span></h1><div class="sub" id="sub"></div></div>
+  <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div></div>
   <div class="ctl">
     <input class="q" id="q" placeholder="Search nodes… agent, developer, file, idea">
     <div class="seg"><button id="b3" class="on">3D</button><button id="b2">2D</button></div>
@@ -156,6 +156,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 <script>
 const G=__DATA__;
 const COL={"HQ":"#FFF1C7","Department":"#E0B45C","Bot":"#7BD3A0","Recipe":"#39C9B6","Reference":"#5DA9E9","Live log":"#B58CF6","Agent":"#F27FA5","Team":"#F2A65A","Developer":"#F06C6C","Idea":"#C9A8FF","Plan":"#5EE6D0","Open action":"#9AA9B3"};
+G.nodes.forEach(n=>{if(n.id==='orbit'){n.fx=0;n.fy=0;n.fz=0}else if(n.id==='sales'){n.fx=-150;n.fy=0;n.fz=0}else if(n.id==='marketing'){n.fx=150;n.fy=0;n.fz=0}});
 const byId=Object.fromEntries(G.nodes.map(n=>[n.id,n]));
 const deg={};G.links.forEach(l=>{deg[l.source]=(deg[l.source]||0)+1;deg[l.target]=(deg[l.target]||0)+1});
 const counts={};G.nodes.forEach(n=>counts[n.type]=(counts[n.type]||0)+1);
@@ -185,13 +186,13 @@ function build3(){el.innerHTML='';g3=ForceGraph3D()(el).backgroundColor('#06090F
  .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#E0B45C">${l.rel}</b> ${(l.target.label||l.target)}</span>`)
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g3.graph2ScreenCoords(n.x,n.y,n.z);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
  const scene=g3.scene();scene.add(new THREE.AmbientLight(0x8899aa,.9));const key=new THREE.DirectionalLight(0xffffff,1.1);key.position.set(200,300,250);scene.add(key);const rim=new THREE.PointLight(0x39C9B6,.9,900);rim.position.set(-250,-120,-200);scene.add(rim);addStars(scene);
- g3.d3Force('charge').strength(-95);g3.d3Force('link').distance(l=>l.rel==='member'?18:l.rel==='owns'?75:l.rel==='loads'?42:32);
+ g3.d3Force('charge').strength(-95);g3.d3Force('center',null);g3.d3Force('link').distance(l=>l.rel==='member'?18:l.rel==='owns'?75:l.rel==='loads'?42:32);
  const ctl=g3.controls();ctl.autoRotate=rotating;ctl.autoRotateSpeed=.45;ctl.enableDamping=true;
- setTimeout(()=>g3.zoomToFit(700,70),900)}
+ setTimeout(()=>{g3.zoomToFit(700,70);setTimeout(()=>g3.cameraPosition(undefined,{x:0,y:0,z:0},600),750)},900)}
 function build2(){el.innerHTML='';g2=ForceGraph()(el).backgroundColor('#06090F').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(l=>l.rel==='loads'?'rgba(57,201,182,.45)':l.rel==='owns'?'rgba(224,180,92,.7)':'rgba(140,160,190,.25)').linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(l=>l.rel==='loads'?'#39C9B6':'#E0B45C')
  .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels)return;if(n.type==='Agent'&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g2.graph2ScreenCoords(n.x,n.y);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
- g2.d3Force('charge').strength(-120);setTimeout(()=>g2.zoomToFit(600,40),900)}
+ g2.d3Force('charge').strength(-120);g2.d3Force('center',null);setTimeout(()=>g2.zoomToFit(600,40),900)}
 function focusNode(n){if(!n)return;showFocus(n);if(mode==='3d'&&g3){const d=90,r=Math.hypot(n.x,n.y,n.z)||1;g3.cameraPosition({x:n.x*(1+d/r),y:n.y*(1+d/r),z:n.z*(1+d/r)},n,1200)}else if(g2){g2.centerAt(n.x,n.y,800);g2.zoom(4,800)}}
 function redraw(){const d=visible();(mode==='3d'?g3:g2).graphData(d);status()}
 function status(){const d=visible();document.getElementById('st').innerHTML=`Showing ${d.nodes.length} of ${G.nodes.length} nodes · hover to inspect · click to focus · drag to move<br><a href="https://github.com/kamelhijawi/elysian-hq">kamelhijawi/elysian-hq</a> · sales ${G.meta.sales_commits} commits · marketing ${G.meta.mkt_commits} commits`}
