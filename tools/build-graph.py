@@ -66,8 +66,16 @@ page="""<title>Elysian Orbit</title>
 :root{--bg:#04080C;--ink:#EAF2F3;--ink2:#8FA6AC;--dim:#4F636B;--line:#1B2F38;--teal:#39C9B6;--gold:#E0B45C;--green:#7BD3A0;--red:#F08C84}
 *{box-sizing:border-box} html{color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
-.sky{position:fixed;inset:0;z-index:0;background:radial-gradient(1200px 800px at 50% 45%,#0B1B24 0%,#04080C 65%)}
+.sky{position:fixed;inset:0;z-index:0;background:#04080C;overflow:hidden}
+.neb{position:absolute;inset:-20%;background:
+ radial-gradient(600px 400px at 30% 40%,rgba(57,201,182,.16),transparent 60%),
+ radial-gradient(700px 500px at 72% 55%,rgba(224,180,92,.13),transparent 60%),
+ radial-gradient(900px 700px at 50% 50%,rgba(20,60,80,.35),transparent 70%);
+ filter:blur(30px);animation:drift 60s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate(-2%,-1%) scale(1)}to{transform:translate(2%,1.5%) scale(1.06)}}
 .sky canvas{position:absolute;inset:0;width:100%;height:100%}
+#stars2{animation:twinkle 6s ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:.35}to{opacity:1}}
 .wrap{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:30px 36px 50px}
 header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
 .brand{font:500 12px "IBM Plex Mono",monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)}
@@ -82,6 +90,11 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
 .orbit text{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .mono{font-family:"IBM Plex Mono",monospace}
 @keyframes spin{to{transform:rotate(360deg)}} @keyframes unspin{to{transform:rotate(-360deg)}}
+@keyframes corona{0%{r:70;opacity:.35}100%{r:118;opacity:0}}
+.corona{fill:none;stroke:#E0B45C;stroke-width:1.2;animation:corona 4s ease-out infinite}
+.corona.b{animation-delay:-2s}
+@keyframes surf{to{transform:rotate(360deg)}}
+.surface{animation:surf 40s linear infinite;transform-origin:0 0;mix-blend-mode:soft-light;opacity:.9}
 .o1{animation:spin 90s linear infinite;transform-origin:0 0}
 .o1b{animation:spin 90s linear infinite;transform-origin:0 0;animation-delay:-45s}
 .u1{animation:unspin 90s linear infinite;transform-origin:0 0}
@@ -92,7 +105,9 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
 .usat{animation:unspin 22s linear infinite;transform-origin:0 0}
 @media(prefers-reduced-motion:reduce){.o1,.o1b,.u1,.u1b,.moon,.umoon,.sat,.usat{animation:none}}
 .panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1100px;margin:6px auto 0}
-.card{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:rgba(9,20,26,.72);backdrop-filter:blur(6px)}
+.card{position:relative;border-radius:18px;padding:20px 22px;background:linear-gradient(160deg,rgba(18,36,46,.75),rgba(6,14,19,.85));backdrop-filter:blur(14px);border:1px solid transparent;background-clip:padding-box}
+.card:before{content:"";position:absolute;inset:0;border-radius:18px;padding:1px;background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.03) 40%,rgba(57,201,182,.25));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.card.m:before{background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.03) 40%,rgba(224,180,92,.3))}
 .card h2{font:400 22px "DM Serif Display",Georgia,serif;margin:0 0 2px}
 .card .meta{font:400 12px "IBM Plex Mono",monospace;color:var(--ink2)}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
@@ -107,7 +122,7 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
 .foot a{color:var(--teal);text-decoration:none}
 @media(max-width:820px){.panel{grid-template-columns:1fr}}
 </style>
-<div class="sky"><canvas id="stars"></canvas></div>
+<div class="sky"><div class="neb"></div><canvas id="stars"></canvas><canvas id="stars2"></canvas></div>
 <div class="wrap">
 <header>
   <div><div class="brand">Elysian · HQ</div><h1>Two departments in <i>orbit.</i></h1><div class="sub">Orbit at the centre. Sales and marketing circle it; each department's bot circles its department. Numbers are read from the files at build time.</div></div>
@@ -122,11 +137,18 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
   <radialGradient id="moon" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#B9C7CC"/><stop offset="1" stop-color="#4E5E64"/></radialGradient>
   <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   <filter id="glow2"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <radialGradient id="atm" cx="50%" cy="50%" r="50%"><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset=".92" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="ringg" x1="0" x2="1"><stop offset="0" stop-color="#E0B45C" stop-opacity="0"/><stop offset=".5" stop-color="#F5E6C2" stop-opacity=".9"/><stop offset="1" stop-color="#E0B45C" stop-opacity="0"/></linearGradient>
+  <clipPath id="cs"><circle r="46"/></clipPath>
+  <pattern id="tex" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="8" cy="9" r="6" fill="#000" opacity=".22"/><circle cx="22" cy="20" r="4" fill="#fff" opacity=".12"/><circle cx="18" cy="5" r="2.5" fill="#000" opacity=".18"/></pattern>
+  <path id="ringpath" d="M-330,0 a330,330 0 1,0 660,0 a330,330 0 1,0 -660,0"/>
  </defs>
  <!-- orbit ring -->
  <circle r="330" fill="none" stroke="#1B2F38" stroke-width="1.2" stroke-dasharray="2 7"/>
  <circle r="330" fill="none" stroke="#39C9B6" stroke-opacity=".08" stroke-width="26"/>
  <!-- sun: Kamel -->
+ <circle class="corona" r="70"/><circle class="corona b" r="70"/>
  <g filter="url(#glow)"><circle r="62" fill="url(#sun)"/></g>
  <circle r="80" fill="none" stroke="#E0B45C" stroke-opacity=".25" stroke-width="1"/>
  <text y="-4" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="24" fill="#1A1206">Orbit</text>
@@ -134,7 +156,7 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
  <!-- SALES planet on ring -->
  <g class="o1"><g transform="translate(330,0)">
    <g class="u1">
-     <g filter="url(#glow2)"><circle r="46" fill="url(#ps)"/></g>
+     <g filter="url(#glow2)"><circle r="46" fill="url(#ps)"/></g><g clip-path="url(#cs)"><rect class="surface" x="-60" y="-60" width="120" height="120" fill="url(#tex)"/></g><circle r="50" fill="url(#atm)"/>
      <text y="-56" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="20" fill="#EAF2F3">Sales</text>
      <text y="5" text-anchor="middle" font-size="22" font-weight="600" fill="#05201C" id="p-s-1"></text>
      <text y="21" text-anchor="middle" font-size="9.5" fill="#05201C">agents</text>
@@ -151,7 +173,7 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
  <!-- MARKETING planet opposite -->
  <g class="o1b"><g transform="translate(330,0)">
    <g class="u1b">
-     <g filter="url(#glow2)"><circle r="46" fill="url(#pm)"/></g>
+     <ellipse rx="74" ry="14" fill="none" stroke="url(#ringg)" stroke-width="5" transform="rotate(-18)" opacity=".85"/><g filter="url(#glow2)"><circle r="46" fill="url(#pm)"/></g><g clip-path="url(#cs)"><rect class="surface" x="-60" y="-60" width="120" height="120" fill="url(#tex)"/></g><circle r="50" fill="url(#atm)"/>
      <text y="-56" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="20" fill="#EAF2F3">Marketing</text>
      <text y="5" text-anchor="middle" font-size="22" font-weight="600" fill="#2A1E06" id="p-m-1"></text>
      <text y="21" text-anchor="middle" font-size="9.5" fill="#2A1E06">ideas</text>
@@ -167,6 +189,15 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
      <g id="sats"></g>
    </g>
  </g></g>
+ <!-- data particles along the ring -->
+ <g filter="url(#soft)">
+  <circle r="4" fill="#39C9B6"><animateMotion dur="12s" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+  <circle r="3" fill="#39C9B6" opacity=".7"><animateMotion dur="12s" begin="-4s" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+  <circle r="2.5" fill="#39C9B6" opacity=".5"><animateMotion dur="12s" begin="-8s" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+  <circle r="4" fill="#E0B45C"><animateMotion dur="15s" keyPoints="1;0" keyTimes="0;1" calcMode="linear" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+  <circle r="3" fill="#E0B45C" opacity=".7"><animateMotion dur="15s" begin="-5s" keyPoints="1;0" keyTimes="0;1" calcMode="linear" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+  <circle r="2.5" fill="#E0B45C" opacity=".5"><animateMotion dur="15s" begin="-10s" keyPoints="1;0" keyTimes="0;1" calcMode="linear" repeatCount="indefinite"><mpath href="#ringpath"/></animateMotion></circle>
+ </g>
  <!-- flow arcs between planets (along the ring) -->
  <text x="0" y="-352" text-anchor="middle" class="mono" font-size="10.5" fill="#39C9B6">marketing reads sales facts · plans come back · marketing never writes to sales</text>
 </svg>
@@ -194,8 +225,8 @@ $('#m-meta').textContent=`${m.commits} commits · last ${m.last} · Grok bot ${m
 $('#m-tiles').innerHTML=tile(m.roles,'roles')+tile(m.ideas,'ideas in the bank')+tile(m.unused,'ideas unused','warn')+tile(m.plans,'plans issued')+tile(m.open,'open actions',m.open>5?'warn':'')+tile(m.blanks,'blanks to fill','warn');
 $('#edges').innerHTML=D.edges.map(e=>`<span class="chip">${e.file.replace(/^(ref|do|live)\\//,'')} <b>← ${e.roles.join(', ')}</b></span>`).join('');
 // starfield
-const c=$('#stars'),x=c.getContext('2d');function stars(){c.width=innerWidth;c.height=innerHeight;x.clearRect(0,0,c.width,c.height);for(let i=0;i<Math.floor(c.width*c.height/6000);i++){const r=Math.random();x.fillStyle=`rgba(${r>.9?'224,180,92':'190,220,230'},${(.15+Math.random()*.6).toFixed(2)})`;x.beginPath();x.arc(Math.random()*c.width,Math.random()*c.height,Math.random()*1.4+.2,0,7);x.fill();}}
-stars();addEventListener('resize',stars);
+function field(id,density,maxr){const c=$(id),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;x.clearRect(0,0,c.width,c.height);for(let i=0;i<Math.floor(c.width*c.height/density);i++){const r=Math.random();x.fillStyle=`rgba(${r>.92?'224,180,92':r>.85?'57,201,182':'200,225,235'},${(.2+Math.random()*.7).toFixed(2)})`;x.beginPath();x.arc(Math.random()*c.width,Math.random()*c.height,Math.random()*maxr+.2,0,7);x.fill();}}
+function stars(){field('#stars',7000,1.3);field('#stars2',16000,2.2)}stars();addEventListener('resize',stars);
 </script>
 """
 page=page.replace("__DATA__",J)
