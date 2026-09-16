@@ -2,7 +2,7 @@
 """Live department graph. Reads ../brain and ../marketing-brain, writes index.html. Run from hq/."""
 import re, subprocess, datetime, pathlib, html, json, os
 HQ=pathlib.Path(__file__).resolve().parent.parent
-DEPTS={"sales":HQ.parent/"brain ","marketing":HQ.parent/"marketing-brain"}
+DEPTS={"sales":HQ.parent/"brain","marketing":HQ.parent/"marketing-brain"}
 # allow CI checkout layout: hq/deps/brain, hq/deps/marketing-brain
 for k,p in list(DEPTS.items()):
     alt=HQ/"deps"/("brain" if k=="sales" else "marketing-brain")
