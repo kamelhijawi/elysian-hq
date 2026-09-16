@@ -110,11 +110,11 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
 <div class="sky"><canvas id="stars"></canvas></div>
 <div class="wrap">
 <header>
-  <div><div class="brand">Elysian · HQ</div><h1>Two departments in <i>orbit.</i></h1><div class="sub">Kamel at the centre. Sales and marketing circle him; each department's bot circles its department. Numbers are read from the files at build time.</div></div>
+  <div><div class="brand">Elysian · HQ</div><h1>Two departments in <i>orbit.</i></h1><div class="sub">Orbit at the centre. Sales and marketing circle it; each department's bot circles its department. Numbers are read from the files at build time.</div></div>
   <div class="live"><span class="dot"></span><span id="stamp"></span></div>
 </header>
 <figure>
-<svg class="orbit" viewBox="-560 -420 1120 840" role="img" aria-label="Orbit diagram: Kamel at the centre; the sales and marketing departments orbit him on one ring; each department has a bot moon; marketing has five role satellites.">
+<svg class="orbit" viewBox="-560 -420 1120 840" role="img" aria-label="Orbit diagram: Orbit, the HQ, at the centre; the sales and marketing departments orbit him on one ring; each department has a bot moon; marketing has five role satellites.">
  <defs>
   <radialGradient id="sun" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF7E0"/><stop offset=".45" stop-color="#E0B45C"/><stop offset="1" stop-color="#6E5220"/></radialGradient>
   <radialGradient id="ps" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#BFF3EB"/><stop offset=".5" stop-color="#39C9B6"/><stop offset="1" stop-color="#0E4B45"/></radialGradient>
@@ -129,8 +129,8 @@ svg.orbit{width:100%;height:auto;display:block;overflow:visible}
  <!-- sun: Kamel -->
  <g filter="url(#glow)"><circle r="62" fill="url(#sun)"/></g>
  <circle r="80" fill="none" stroke="#E0B45C" stroke-opacity=".25" stroke-width="1"/>
- <text y="-4" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="24" fill="#1A1206">Kamel</text>
- <text y="16" text-anchor="middle" font-size="10.5" fill="#3A2A0A">approves everything</text>
+ <text y="-4" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="24" fill="#1A1206">Orbit</text>
+ <text y="16" text-anchor="middle" font-size="10.5" fill="#3A2A0A">Elysian HQ</text>
  <!-- SALES planet on ring -->
  <g class="o1"><g transform="translate(330,0)">
    <g class="u1">
