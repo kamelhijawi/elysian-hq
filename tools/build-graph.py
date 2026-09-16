@@ -48,84 +48,156 @@ xai=subprocess.call("security find-generic-password -s xai-api-key >/dev/null 2>
 xai_credits=(pathlib.Path.home()/".config/xai/credits-ok").exists()
 engine=("Grok (xAI)" if xai_credits else "Grok key stored, no credits yet; running on Claude") if xai else "Claude headless (Grok key not set)"
 now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-def edge_svg():
-    out=[]; y=300
-    for ref,srcs in edge_rows:
-        out.append(f'<text x="700" y="{y}" text-anchor="middle" fill="#8FA6AC" font-size="11">{esc(ref)} ← {esc(", ".join(sorted(srcs)))}</text>'); y+=16
-    return "\n".join(out), y
-edge_text,_=edge_svg()
-page=f"""<title>Elysian Departments</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono&display=swap">
+
+data={"now":now,"engine":engine,"xai":xai,"xai_credits":xai_credits,
+ "sales":{"commits":S["commits"],"last":S["last"],"agents":agents,"devs":devs,"recipes":len(S["recipes"]),"open":S["open"],"closed":S["closed"],"briefs":len(briefs),"blanks":S["blanks"],"monday_last":monday_last},
+ "marketing":{"commits":M["commits"],"last":M["last"],"roles":len(M["recipes"]),"role_names":sorted(M["recipes"]),"ideas":ideas_n,"unused":ideas_unused,"plans":len(plans),"open":M["open"],"closed":M["closed"],"blanks":M["blanks"]},
+ "edges":[{"file":r,"roles":sorted(v)} for r,v in edge_rows]}
+mk_log=pathlib.Path.home()/"Library/Logs/elysian-marketing-bot.log"
+data["marketing"]["bot_last"]=datetime.datetime.fromtimestamp(mk_log.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if mk_log.exists() else "scheduled, not yet run"
+# last grok run from marketing week.md stamps
+wk=(DEPTS["marketing"]/"live/week.md").read_text(errors="ignore") if (DEPTS["marketing"]/"live/week.md").exists() else ""
+gr=re.findall(r"<!-- grokbot (\S+) (\S+ \S+) tokens=(\d+) -->",wk)
+data["marketing"]["grok_last"]={"model":gr[-1][0],"when":gr[-1][1],"tokens":int(gr[-1][2])} if gr else None
+J=json.dumps(data)
+page="""<title>Elysian Orbit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-:root{{--bg:#0B1418;--bg2:#10202A;--panel:#13242D;--ink:#E7F0F1;--ink2:#8FA6AC;--line:#26404A;--accent:#39C9B6;--gold:#E0B45C;--bad:#F08C84}}
-*{{box-sizing:border-box}} html{{color-scheme:dark}}
-body{{background:radial-gradient(1200px 700px at 50% 30%,var(--bg2),var(--bg) 70%);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;margin:0;padding:28px 32px 40px;min-height:100vh}}
-header{{max-width:1400px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}}
-h1{{font:400 40px/1.05 "DM Serif Display",Georgia,serif;margin:0}}
-.sub{{color:var(--ink2);font-size:14px;margin-top:6px}} .stamp{{font-size:12px;color:var(--ink2);text-align:right;font-family:"IBM Plex Mono",monospace}}
-figure{{margin:0 auto;max-width:1400px}} svg{{max-width:100%;height:auto;display:block}}
-figcaption{{color:var(--ink2);font-size:13px;margin-top:10px;max-width:80ch}}
-.tbl{{max-width:1400px;margin:18px auto 0;overflow-x:auto}} table{{border-collapse:collapse;width:100%;font-size:13.5px}}
-th{{text-align:left;color:var(--ink2);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:1px solid var(--line)}} td{{padding:7px 10px;border-bottom:1px solid var(--line)}} .mono{{font-family:"IBM Plex Mono",monospace}}
+:root{--bg:#04080C;--ink:#EAF2F3;--ink2:#8FA6AC;--dim:#4F636B;--line:#1B2F38;--teal:#39C9B6;--gold:#E0B45C;--green:#7BD3A0;--red:#F08C84}
+*{box-sizing:border-box} html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+.sky{position:fixed;inset:0;z-index:0;background:radial-gradient(1200px 800px at 50% 45%,#0B1B24 0%,#04080C 65%)}
+.sky canvas{position:absolute;inset:0;width:100%;height:100%}
+.wrap{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:30px 36px 50px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.brand{font:500 12px "IBM Plex Mono",monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)}
+h1{font:400 clamp(34px,4.4vw,56px)/1 "DM Serif Display",Georgia,serif;margin:6px 0 0;letter-spacing:-.015em}
+h1 i{font-style:italic;color:var(--gold)}
+.sub{color:var(--ink2);font-size:14px;margin-top:8px;max-width:62ch}
+.live{display:flex;align-items:center;gap:10px;font:500 12px "IBM Plex Mono",monospace;color:var(--ink2);letter-spacing:.08em;text-transform:uppercase}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(123,211,160,.6)}70%{box-shadow:0 0 0 12px rgba(123,211,160,0)}100%{box-shadow:0 0 0 0 rgba(123,211,160,0)}}
+figure{margin:10px auto 0;max-width:1100px}
+svg.orbit{width:100%;height:auto;display:block;overflow:visible}
+.orbit text{font-family:"IBM Plex Sans",system-ui,sans-serif}
+.mono{font-family:"IBM Plex Mono",monospace}
+@keyframes spin{to{transform:rotate(360deg)}} @keyframes unspin{to{transform:rotate(-360deg)}}
+.o1{animation:spin 90s linear infinite;transform-origin:0 0}
+.o1b{animation:spin 90s linear infinite;transform-origin:0 0;animation-delay:-45s}
+.u1{animation:unspin 90s linear infinite;transform-origin:0 0}
+.u1b{animation:unspin 90s linear infinite;transform-origin:0 0;animation-delay:-45s}
+.moon{animation:spin 14s linear infinite;transform-origin:0 0}
+.umoon{animation:unspin 14s linear infinite;transform-origin:0 0}
+.sat{animation:spin 22s linear infinite;transform-origin:0 0}
+.usat{animation:unspin 22s linear infinite;transform-origin:0 0}
+@media(prefers-reduced-motion:reduce){.o1,.o1b,.u1,.u1b,.moon,.umoon,.sat,.usat{animation:none}}
+.panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1100px;margin:6px auto 0}
+.card{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:rgba(9,20,26,.72);backdrop-filter:blur(6px)}
+.card h2{font:400 22px "DM Serif Display",Georgia,serif;margin:0 0 2px}
+.card .meta{font:400 12px "IBM Plex Mono",monospace;color:var(--ink2)}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.tile{background:rgba(4,8,12,.6);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile .v{font:500 26px/1 "IBM Plex Sans",sans-serif;font-variant-numeric:tabular-nums}
+.tile .k{font-size:11px;color:var(--ink2);margin-top:5px}
+.card.s .tile .v{color:#CFF5EE}.card.m .tile .v{color:#F5E6C2}.tile.warn .v{color:var(--gold)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{font:400 11.5px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--ink)}
+.chip b{color:var(--ink2);font-weight:400}
+.foot{max-width:1100px;margin:18px auto 0;color:var(--dim);font-size:12px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.foot a{color:var(--teal);text-decoration:none}
+@media(max-width:820px){.panel{grid-template-columns:1fr}}
 </style>
-<header><div><h1>Elysian departments, live</h1><div class="sub">Two AI departments reporting to Kamel, and what flows between them. Rebuilt from the files on every change.</div></div><div class="stamp">built {now}<br>engine: {esc(engine)}</div></header>
+<div class="sky"><canvas id="stars"></canvas></div>
+<div class="wrap">
+<header>
+  <div><div class="brand">Elysian · HQ</div><h1>Two departments in <i>orbit.</i></h1><div class="sub">Kamel at the centre. Sales and marketing circle him; each department's bot circles its department. Numbers are read from the files at build time.</div></div>
+  <div class="live"><span class="dot"></span><span id="stamp"></span></div>
+</header>
 <figure>
-<svg viewBox="0 0 1400 640" role="img" aria-label="Kamel at top; the sales department and the marketing department below, each with live counts; arrows show that marketing reads sales facts and hands plans back; each department has a bot that runs its recipes." xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="13">
-<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#39C9B6"/></marker>
-<marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#E0B45C"/></marker>
-<filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-<rect x="560" y="24" width="280" height="70" rx="12" fill="#13242D" stroke="#E7F0F1" stroke-width="1.5"/>
-<text x="700" y="54" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="22" fill="#E7F0F1">Kamel</text>
-<text x="700" y="76" text-anchor="middle" fill="#8FA6AC" font-size="12">Head of Sales · owns both departments · approves every plan, send and spend</text>
-<line x1="700" y1="94" x2="700" y2="130" stroke="#8FA6AC" stroke-width="1.5"/><line x1="330" y1="130" x2="1070" y2="130" stroke="#8FA6AC" stroke-width="1.5"/>
-<line x1="330" y1="130" x2="330" y2="160" stroke="#8FA6AC" stroke-width="1.5"/><line x1="1070" y1="130" x2="1070" y2="160" stroke="#8FA6AC" stroke-width="1.5"/>
-
-<rect x="80" y="160" width="500" height="330" rx="14" fill="#13242D" stroke="#39C9B6" filter="url(#glow)"/>
-<text x="100" y="190" font-family="DM Serif Display, Georgia, serif" font-size="22" fill="#E7F0F1">Sales department</text>
-<text x="100" y="210" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">brain/ · {S['commits']} commits · last {esc(S['last'])}</text>
-<g font-size="13" fill="#E7F0F1">
-<text x="100" y="242">Agents on the floor</text><text x="560" y="242" text-anchor="end" font-family="IBM Plex Mono, monospace">{agents}</text>
-<text x="100" y="264">Active developers</text><text x="560" y="264" text-anchor="end" font-family="IBM Plex Mono, monospace">{devs}</text>
-<text x="100" y="286">Recipes</text><text x="560" y="286" text-anchor="end" font-family="IBM Plex Mono, monospace">{len(S['recipes'])}</text>
-<text x="100" y="308">Open actions / closed</text><text x="560" y="308" text-anchor="end" font-family="IBM Plex Mono, monospace">{S['open']} / {S['closed']}</text>
-<text x="100" y="330">Monday briefs written</text><text x="560" y="330" text-anchor="end" font-family="IBM Plex Mono, monospace">{len(briefs)}</text>
-<text x="100" y="352">Blanks still to fill</text><text x="560" y="352" text-anchor="end" font-family="IBM Plex Mono, monospace">{S['blanks']}</text>
-</g>
-<rect x="100" y="380" width="460" height="90" rx="8" fill="#0F1C22" stroke="#26404A"/>
-<text x="116" y="404" font-size="14" font-weight="600" fill="#E7F0F1">Sales bot</text><text x="544" y="404" text-anchor="end" fill="#39C9B6" font-size="12">Monday 07:00</text>
-<text x="116" y="424" fill="#8FA6AC" font-size="12">Runs do/weekly-meeting.md: Salesforce + DLD digest → brief, week log, actions</text>
-<text x="116" y="444" fill="#8FA6AC" font-size="12">Engine: Claude headless with Zapier tools (Salesforce, Gmail)</text>
-<text x="116" y="462" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">last run log: {esc(monday_last)}</text>
-
-<rect x="820" y="160" width="500" height="330" rx="14" fill="#13242D" stroke="#E0B45C" filter="url(#glow)"/>
-<text x="840" y="190" font-family="DM Serif Display, Georgia, serif" font-size="22" fill="#E7F0F1">Marketing department</text>
-<text x="840" y="210" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">marketing-brain/ · {M['commits']} commits · last {esc(M['last'])}</text>
-<g font-size="13" fill="#E7F0F1">
-<text x="840" y="242">Roles (strategy and creative)</text><text x="1300" y="242" text-anchor="end" font-family="IBM Plex Mono, monospace">{len(M['recipes'])}</text>
-<text x="840" y="264">Ideas in the bank / unused</text><text x="1300" y="264" text-anchor="end" font-family="IBM Plex Mono, monospace">{ideas_n} / {ideas_unused}</text>
-<text x="840" y="286">Plans issued</text><text x="1300" y="286" text-anchor="end" font-family="IBM Plex Mono, monospace">{len(plans)}</text>
-<text x="840" y="308">Open actions / closed</text><text x="1300" y="308" text-anchor="end" font-family="IBM Plex Mono, monospace">{M['open']} / {M['closed']}</text>
-<text x="840" y="330">Budget</text><text x="1300" y="330" text-anchor="end" font-family="IBM Plex Mono, monospace">TBA (AED 0)</text>
-<text x="840" y="352">Blanks still to fill</text><text x="1300" y="352" text-anchor="end" font-family="IBM Plex Mono, monospace">{M['blanks']}</text>
-</g>
-<rect x="840" y="380" width="460" height="90" rx="8" fill="#0F1C22" stroke="#26404A"/>
-<text x="856" y="404" font-size="14" font-weight="600" fill="#E7F0F1">Marketing bot</text><text x="1284" y="404" text-anchor="end" fill="#E0B45C" font-size="12">Sun 08:00 on Grok: analyst + ideas</text>
-<text x="856" y="424" fill="#8FA6AC" font-size="12">Runs {esc(", ".join(sorted(M['recipes'])))}</text>
-<text x="856" y="444" fill="#8FA6AC" font-size="12">Engine: {esc(engine)}</text>
-<text x="856" y="462" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">plans, ideas, media plans → Kamel → named executor</text>
-
-<path d="M580 260 C 640 260, 760 260, 820 260" fill="none" stroke="#39C9B6" stroke-width="2.5" marker-end="url(#a)"/>
-<text x="700" y="250" text-anchor="middle" fill="#39C9B6" font-size="11">marketing reads: developers, launches, voice, numbers, team</text>
-<path d="M820 400 C 760 400, 640 400, 580 400" fill="none" stroke="#E0B45C" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#g)"/>
-<text x="700" y="392" text-anchor="middle" fill="#E0B45C" font-size="11">marketing hands back: launch plans, media plans, the marketing line in the Monday brief</text>
-{edge_text}
-<text x="700" y="620" text-anchor="middle" fill="#8FA6AC" font-size="12">Marketing may read the sales brain and never writes to it. Both departments commit to git; this page is rebuilt from those commits.</text>
+<svg class="orbit" viewBox="-560 -420 1120 840" role="img" aria-label="Orbit diagram: Kamel at the centre; the sales and marketing departments orbit him on one ring; each department has a bot moon; marketing has five role satellites.">
+ <defs>
+  <radialGradient id="sun" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF7E0"/><stop offset=".45" stop-color="#E0B45C"/><stop offset="1" stop-color="#6E5220"/></radialGradient>
+  <radialGradient id="ps" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#BFF3EB"/><stop offset=".5" stop-color="#39C9B6"/><stop offset="1" stop-color="#0E4B45"/></radialGradient>
+  <radialGradient id="pm" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#FFEBC2"/><stop offset=".5" stop-color="#E0B45C"/><stop offset="1" stop-color="#5A4419"/></radialGradient>
+  <radialGradient id="moon" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#B9C7CC"/><stop offset="1" stop-color="#4E5E64"/></radialGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="glow2"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ </defs>
+ <!-- orbit ring -->
+ <circle r="330" fill="none" stroke="#1B2F38" stroke-width="1.2" stroke-dasharray="2 7"/>
+ <circle r="330" fill="none" stroke="#39C9B6" stroke-opacity=".08" stroke-width="26"/>
+ <!-- sun: Kamel -->
+ <g filter="url(#glow)"><circle r="62" fill="url(#sun)"/></g>
+ <circle r="80" fill="none" stroke="#E0B45C" stroke-opacity=".25" stroke-width="1"/>
+ <text y="-4" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="24" fill="#1A1206">Kamel</text>
+ <text y="16" text-anchor="middle" font-size="10.5" fill="#3A2A0A">approves everything</text>
+ <!-- SALES planet on ring -->
+ <g class="o1"><g transform="translate(330,0)">
+   <g class="u1">
+     <g filter="url(#glow2)"><circle r="46" fill="url(#ps)"/></g>
+     <text y="-56" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="20" fill="#EAF2F3">Sales</text>
+     <text y="5" text-anchor="middle" font-size="22" font-weight="600" fill="#05201C" id="p-s-1"></text>
+     <text y="21" text-anchor="middle" font-size="9.5" fill="#05201C">agents</text>
+     <text y="70" text-anchor="middle" class="mono" font-size="10.5" fill="#8FA6AC" id="p-s-2"></text>
+     <text y="84" text-anchor="middle" class="mono" font-size="10.5" fill="#8FA6AC" id="p-s-3"></text>
+     <!-- moon: sales bot -->
+     <circle r="88" fill="none" stroke="#39C9B6" stroke-opacity=".25" stroke-dasharray="1 5"/>
+     <g class="moon"><g transform="translate(88,0)"><g class="umoon">
+       <circle r="11" fill="url(#moon)"/><text y="-16" text-anchor="middle" font-size="9.5" fill="#CFF5EE">Monday bot</text>
+       <text y="26" text-anchor="middle" class="mono" font-size="8.5" fill="#8FA6AC" id="p-s-bot"></text>
+     </g></g></g>
+   </g>
+ </g></g>
+ <!-- MARKETING planet opposite -->
+ <g class="o1b"><g transform="translate(330,0)">
+   <g class="u1b">
+     <g filter="url(#glow2)"><circle r="46" fill="url(#pm)"/></g>
+     <text y="-56" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" font-size="20" fill="#EAF2F3">Marketing</text>
+     <text y="5" text-anchor="middle" font-size="22" font-weight="600" fill="#2A1E06" id="p-m-1"></text>
+     <text y="21" text-anchor="middle" font-size="9.5" fill="#2A1E06">ideas</text>
+     <text y="70" text-anchor="middle" class="mono" font-size="10.5" fill="#8FA6AC" id="p-m-2"></text>
+     <text y="84" text-anchor="middle" class="mono" font-size="10.5" fill="#8FA6AC" id="p-m-3"></text>
+     <circle r="88" fill="none" stroke="#E0B45C" stroke-opacity=".25" stroke-dasharray="1 5"/>
+     <g class="moon"><g transform="translate(88,0)"><g class="umoon">
+       <circle r="11" fill="url(#moon)"/><text y="-16" text-anchor="middle" font-size="9.5" fill="#F5E6C2">Grok bot</text>
+       <text y="26" text-anchor="middle" class="mono" font-size="8.5" fill="#8FA6AC" id="p-m-bot"></text>
+     </g></g></g>
+     <!-- role satellites -->
+     <circle r="122" fill="none" stroke="#E0B45C" stroke-opacity=".14" stroke-dasharray="1 6"/>
+     <g id="sats"></g>
+   </g>
+ </g></g>
+ <!-- flow arcs between planets (along the ring) -->
+ <text x="0" y="-352" text-anchor="middle" class="mono" font-size="10.5" fill="#39C9B6">marketing reads sales facts · plans come back · marketing never writes to sales</text>
 </svg>
-<figcaption>Live counts from both folders. Blanks are fields still waiting for a fact. The cross-links listed in the middle are parsed from the marketing recipes: every sales file a marketing role loads.</figcaption>
 </figure>
-<div class="tbl"><table><thead><tr><th>Sales file read by marketing</th><th>Marketing roles that load it</th></tr></thead><tbody>
-{"".join(f"<tr><td class=mono>{esc(r)}</td><td>{esc(', '.join(sorted(s)))}</td></tr>" for r,s in edge_rows)}
-</tbody></table></div>
+<div class="panel">
+ <div class="card s"><h2>Sales · brain/</h2><div class="meta" id="s-meta"></div><div class="tiles" id="s-tiles"></div></div>
+ <div class="card m"><h2>Marketing · marketing-brain/</h2><div class="meta" id="m-meta"></div><div class="tiles" id="m-tiles"></div><div class="chips" id="edges"></div></div>
+</div>
+<div class="foot"><span>Rebuilt on every commit in either brain · <a href="https://github.com/kamelhijawi/elysian-hq">kamelhijawi/elysian-hq</a></span><span id="engine"></span></div>
+</div>
+<script>
+const D=__DATA__;const $=s=>document.querySelector(s);
+$('#stamp').textContent='live · built '+D.now;$('#engine').textContent='engine: '+D.engine;
+const s=D.sales,m=D.marketing;
+$('#p-s-1').textContent=s.agents;$('#p-s-2').textContent=`${s.devs} developers · ${s.open} open actions`;$('#p-s-3').textContent=`${s.briefs} brief · ${s.blanks} blanks`;
+$('#p-s-bot').textContent='last '+(s.monday_last||'never');
+$('#p-m-1').textContent=m.ideas;$('#p-m-2').textContent=`${m.roles} roles · ${m.plans} plan · ${m.open} open actions`;$('#p-m-3').textContent=`${m.unused} ideas unused · ${m.blanks} blanks`;
+$('#p-m-bot').textContent=m.grok_last?`${m.grok_last.model} · ${(m.grok_last.tokens/1000).toFixed(0)}k tok`:'not yet run';
+const names=m.role_names;const g=$('#sats');
+g.innerHTML=names.map((n,i)=>{const a=(i/names.length)*360;return `<g class="sat" style="animation-delay:${-i*22/names.length}s"><g transform="rotate(${a}) translate(122,0) rotate(${-a})"><g class="usat" style="animation-delay:${-i*22/names.length}s"><circle r="4.5" fill="#E0B45C"/><text y="-9" text-anchor="middle" font-size="8.5" fill="#F5E6C2">${n}</text></g></g></g>`}).join('');
+const tile=(v,k,c='')=>`<div class="tile ${c}"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+$('#s-meta').textContent=`${s.commits} commits · last ${s.last} · Monday bot last run ${s.monday_last}`;
+$('#s-tiles').innerHTML=tile(s.agents,'agents')+tile(s.devs,'active developers')+tile(s.recipes,'recipes')+tile(s.open,'open actions',s.open>5?'warn':'')+tile(s.briefs,'Monday briefs')+tile(s.blanks,'blanks to fill','warn');
+$('#m-meta').textContent=`${m.commits} commits · last ${m.last} · Grok bot ${m.grok_last?('last run '+m.grok_last.when):'scheduled Sunday 08:00'}`;
+$('#m-tiles').innerHTML=tile(m.roles,'roles')+tile(m.ideas,'ideas in the bank')+tile(m.unused,'ideas unused','warn')+tile(m.plans,'plans issued')+tile(m.open,'open actions',m.open>5?'warn':'')+tile(m.blanks,'blanks to fill','warn');
+$('#edges').innerHTML=D.edges.map(e=>`<span class="chip">${e.file.replace(/^(ref|do|live)\\//,'')} <b>← ${e.roles.join(', ')}</b></span>`).join('');
+// starfield
+const c=$('#stars'),x=c.getContext('2d');function stars(){c.width=innerWidth;c.height=innerHeight;x.clearRect(0,0,c.width,c.height);for(let i=0;i<Math.floor(c.width*c.height/6000);i++){const r=Math.random();x.fillStyle=`rgba(${r>.9?'224,180,92':'190,220,230'},${(.15+Math.random()*.6).toFixed(2)})`;x.beginPath();x.arc(Math.random()*c.width,Math.random()*c.height,Math.random()*1.4+.2,0,7);x.fill();}}
+stars();addEventListener('resize',stars);
+</script>
 """
+page=page.replace("__DATA__",J)
 (HQ/"index.html").write_text(page,encoding="utf-8")
-print(json.dumps({"sales":{k:v for k,v in S.items() if k!='recipes'},"marketing":{k:v for k,v in M.items() if k!='recipes'},"agents":agents,"devs":devs,"ideas":ideas_n,"plans":len(plans),"edges":len(edge_rows),"engine":engine}))
+print(json.dumps({"engine":engine,"agents":agents,"edges":len(edge_rows),"grok_last":data["marketing"]["grok_last"]}))
