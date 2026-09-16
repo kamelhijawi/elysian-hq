@@ -44,8 +44,9 @@ edge_rows=sorted(edges.items())
 # bots
 monday_log=pathlib.Path.home()/"Library/Logs/elysian-brain-monday.log"
 monday_last=datetime.datetime.fromtimestamp(monday_log.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if monday_log.exists() else "never"
-xai=(pathlib.Path.home()/".config/xai/key").exists()
-engine="Grok (xAI)" if xai else "Claude headless (Grok key not set)"
+xai=subprocess.call("security find-generic-password -s xai-api-key >/dev/null 2>&1",shell=True)==0
+xai_credits=(pathlib.Path.home()/".config/xai/credits-ok").exists()
+engine=("Grok (xAI)" if xai_credits else "Grok key stored, no credits yet; running on Claude") if xai else "Claude headless (Grok key not set)"
 now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 def edge_svg():
     out=[]; y=300
