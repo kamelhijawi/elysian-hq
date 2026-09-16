@@ -94,7 +94,7 @@ th{{text-align:left;color:var(--ink2);font-size:12px;text-transform:uppercase;le
 <rect x="100" y="380" width="460" height="90" rx="8" fill="#0F1C22" stroke="#26404A"/>
 <text x="116" y="404" font-size="14" font-weight="600" fill="#E7F0F1">Sales bot</text><text x="544" y="404" text-anchor="end" fill="#39C9B6" font-size="12">Monday 07:00</text>
 <text x="116" y="424" fill="#8FA6AC" font-size="12">Runs do/weekly-meeting.md: Salesforce + DLD digest → brief, week log, actions</text>
-<text x="116" y="444" fill="#8FA6AC" font-size="12">Engine: {esc(engine)}</text>
+<text x="116" y="444" fill="#8FA6AC" font-size="12">Engine: Claude headless with Zapier tools (Salesforce, Gmail)</text>
 <text x="116" y="462" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">last run log: {esc(monday_last)}</text>
 
 <rect x="820" y="160" width="500" height="330" rx="14" fill="#13242D" stroke="#E0B45C" filter="url(#glow)"/>
@@ -109,7 +109,7 @@ th{{text-align:left;color:var(--ink2);font-size:12px;text-transform:uppercase;le
 <text x="840" y="352">Blanks still to fill</text><text x="1300" y="352" text-anchor="end" font-family="IBM Plex Mono, monospace">{M['blanks']}</text>
 </g>
 <rect x="840" y="380" width="460" height="90" rx="8" fill="#0F1C22" stroke="#26404A"/>
-<text x="856" y="404" font-size="14" font-weight="600" fill="#E7F0F1">Marketing bot</text><text x="1284" y="404" text-anchor="end" fill="#E0B45C" font-size="12">Sun analyst+ideas · Mon 06:30 report</text>
+<text x="856" y="404" font-size="14" font-weight="600" fill="#E7F0F1">Marketing bot</text><text x="1284" y="404" text-anchor="end" fill="#E0B45C" font-size="12">Sun 08:00 on Grok: analyst + ideas</text>
 <text x="856" y="424" fill="#8FA6AC" font-size="12">Runs {esc(", ".join(sorted(M['recipes'])))}</text>
 <text x="856" y="444" fill="#8FA6AC" font-size="12">Engine: {esc(engine)}</text>
 <text x="856" y="462" fill="#8FA6AC" font-size="12" font-family="IBM Plex Mono, monospace">plans, ideas, media plans → Kamel → named executor</text>
