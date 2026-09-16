@@ -230,5 +230,6 @@ function stars(){field('#stars',7000,1.3);field('#stars2',16000,2.2)}stars();add
 </script>
 """
 page=page.replace("__DATA__",J)
-(HQ/"index.html").write_text(page,encoding="utf-8")
+(HQ/"solar.html").write_text(page,encoding="utf-8")
+subprocess.call(["python3",str(HQ/"tools/build-orbit.py")])
 print(json.dumps({"engine":engine,"agents":agents,"edges":len(edge_rows),"grok_last":data["marketing"]["grok_last"]}))
