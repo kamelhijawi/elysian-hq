@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "failed",
-  "note": "exit 1 on do/daily-pulse.md",
-  "started": "2026-09-17 11:05",
+  "state": "running",
+  "note": "do/daily-pulse.md",
+  "started": "2026-09-17 11:08",
   "finished": "2026-09-17 11:05",
   "last_ok": "2026-09-17 08:12"
  },
