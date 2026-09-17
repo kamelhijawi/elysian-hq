@@ -15,7 +15,7 @@ add("orbit","Moon Shelter","HQ","hq",16,"Elysian HQ · the centre")
 add("sales","Sales department","Department","sales",12,"brain/")
 add("marketing","Marketing department","Department","marketing",12,"marketing-brain/")
 link("orbit","sales","owns"); link("orbit","marketing","owns")
-add("bot:monday","Monday bot","Bot","sales",7,"Claude headless · Mon 07:00"); link("sales","bot:monday","runs")
+add("bot:monday","Monday bot","Bot","sales",7,"Claude headless · every Monday 07:00"); link("sales","bot:monday","runs")
 add("bot:grok","Grok bot","Bot","marketing",7,"grok-4.6 · Sun 08:00"); link("marketing","bot:grok","runs")
 def files(root,dept,prefix):
     for layer in ("ref","live","do"):
@@ -89,7 +89,8 @@ for l in links[:]:
 def sh(c,cwd): 
     try: return subprocess.check_output(c,cwd=cwd,shell=True,text=True).strip()
     except Exception: return ""
-meta={"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
+status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
+meta={"status":status,"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 (HQ/"graph.json").write_text(json.dumps(G),encoding="utf-8")
 counts={}
@@ -137,7 +138,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 </style>
 <div id="g"></div>
 <div class="ui top">
-  <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div></div>
+  <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div><div class="sub" id="bots" style="margin-top:8px"></div></div>
   <div class="ctl">
     <input class="q" id="q" placeholder="Search nodes… agent, developer, file, idea">
     <div class="seg"><button id="b3" class="on">3D</button><button id="b2">2D</button></div>
@@ -160,8 +161,12 @@ G.nodes.forEach(n=>{if(n.id==='orbit'){n.fx=0;n.fy=0;n.fz=0}else if(n.id==='sale
 const byId=Object.fromEntries(G.nodes.map(n=>[n.id,n]));
 const deg={};G.links.forEach(l=>{deg[l.source]=(deg[l.source]||0)+1;deg[l.target]=(deg[l.target]||0)+1});
 const counts={};G.nodes.forEach(n=>counts[n.type]=(counts[n.type]||0)+1);
+const ST=G.meta.status||{};function botState(k){const b=ST[k];if(!b)return{s:'never run',c:'#56697A'};if(b.state==='running')return{s:'running since '+b.started,c:'#E0B45C'};if(b.state==='failed')return{s:'failed '+b.finished+' · '+(b.note||''),c:'#F06C6C'};const h=(Date.now()-new Date(b.finished.replace(' ','T')).getTime())/36e5;return{s:(h<24?'active · ':'idle · ')+'last ok '+b.finished+' · '+(b.note||''),c:h<24?'#7BD3A0':'#93A4B3'}}
+const BOT={'bot:monday':'sales','bot:grok':'marketing','sales':'sales','marketing':'marketing'};
+G.nodes.forEach(n=>{if(BOT[n.id]){const st=botState(BOT[n.id]);n.meta=(n.meta?n.meta+' · ':'')+st.s;n.stateColor=st.c}});
 const hidden=new Set();let labels=true,mode='3d',rotating=true,query='';
 document.getElementById('sub').textContent=`${G.nodes.length} nodes · ${G.links.length} links · built ${G.meta.built}`;
+document.getElementById('bots').innerHTML=['sales','marketing'].map(k=>{const st=botState(k);return `<span style="display:inline-block;margin-right:16px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${st.c};box-shadow:0 0 8px ${st.c};margin-right:7px"></i><b style="color:var(--ink)">${k}</b> ${st.s}</span>`}).join('');
 const leg=document.getElementById('leg');
 Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<span><i style="background:${COL[t]}"></i>${t}</span><b>${c}</b>`;r.onclick=()=>{hidden.has(t)?hidden.delete(t):hidden.add(t);r.classList.toggle('off');redraw()};leg.appendChild(r)});
 function visible(){const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!query||n.label.toLowerCase().includes(query)||n.type.toLowerCase().includes(query)));const ids=new Set(ns.map(n=>n.id));const ls=G.links.filter(l=>ids.has(typeof l.source==='object'?l.source.id:l.source)&&ids.has(typeof l.target==='object'?l.target.id:l.target)).map(l=>({source:typeof l.source==='object'?l.source.id:l.source,target:typeof l.target==='object'?l.target.id:l.target,rel:l.rel}));return {nodes:ns.map(n=>({...n})),links:ls}}
@@ -175,7 +180,7 @@ const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=12
 function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(COL[n.type]);const grp=new THREE.Group();
  const seg=n.type==='Agent'?12:24;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:n.type==='HQ'?.9:n.type==='Department'?.6:.35,shininess:60,specular:0x334455});
  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
- const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?.25:.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
+ const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?.25:.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
  if(labels&&!(n.type==='Agent'&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Agent'?2.2:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor='rgba(6,9,15,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
  return grp}
 function addStars(scene){const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const c=Math.random()>.9?new THREE.Color('#E0B45C'):Math.random()>.85?new THREE.Color('#39C9B6'):new THREE.Color('#C8DDE8');colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
