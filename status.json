@@ -21,8 +21,10 @@
   "last_ok": null
  },
  "moonshelter": {
-  "state": "running",
-  "note": "do/digest.md",
-  "started": "2026-09-17 11:06"
+  "state": "failed",
+  "note": "exit 1 on do/digest.md",
+  "started": "2026-09-17 11:06",
+  "finished": "2026-09-17 11:06",
+  "last_ok": null
  }
 }
