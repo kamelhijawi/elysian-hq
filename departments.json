@@ -1,5 +1,42 @@
 {
- "centre": "Moon Shelter",
+ "centre": {
+  "id": "moonshelter",
+  "name": "Moon Shelter",
+  "folder": "moonshelter",
+  "is": "Kamel",
+  "schedule": [
+   {
+    "days": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "hour": 7,
+    "minute": 30,
+    "recipe": "do/digest.md",
+    "label": "daily digest"
+   },
+   {
+    "days": [
+     0
+    ],
+    "hour": 9,
+    "minute": 30,
+    "recipe": "do/digest.md",
+    "label": "Sunday digest"
+   }
+  ],
+  "tools": [
+   "Bash",
+   "Read",
+   "Write",
+   "Edit",
+   "Glob",
+   "Grep"
+  ]
+ },
  "departments": [
   {
    "id": "crm",
@@ -136,6 +173,44 @@
    "id": "advisory",
    "folder": "advisory",
    "reason": "paused by Kamel 2026-09-17; folder and repo kept"
+  }
+ ],
+ "functions": [
+  {
+   "from": "crm",
+   "to": "sales",
+   "name": "lead queue",
+   "what": "unassigned and untouched leads by source and owner; agents holding untouched leads; orphaned deals"
+  },
+  {
+   "from": "crm",
+   "to": "marketing",
+   "name": "source quality",
+   "what": "leads, touched <24h, converted, by LeadSource for 7d; source naming problems"
+  },
+  {
+   "from": "sales",
+   "to": "crm",
+   "name": "fix requests",
+   "what": "wrong owners, agents with no Salesforce user, records sales needs corrected"
+  },
+  {
+   "from": "sales",
+   "to": "marketing",
+   "name": "demand signals",
+   "what": "projects and communities enquiries name, launches in flight, what agents hear from clients"
+  },
+  {
+   "from": "marketing",
+   "to": "sales",
+   "name": "campaign support",
+   "what": "ideas and plans ready for the next launch, the marketing line for the Monday brief, what marketing needs from sales"
+  },
+  {
+   "from": "marketing",
+   "to": "crm",
+   "name": "tracking standard",
+   "what": "LeadSource naming standard, campaign tags needed to measure a plan"
   }
  ]
 }

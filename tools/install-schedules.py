@@ -4,7 +4,7 @@ import json, pathlib, subprocess, sys
 HOME=pathlib.Path.home(); LA=HOME/"Library/LaunchAgents"; HQ=HOME/"elysian/hq"
 m=json.load(open(HQ/"departments.json")); check="--check" in sys.argv
 want={}
-for d in m["departments"]:
+for d in m["departments"]+([m["centre"]] if isinstance(m.get("centre"),dict) else []):
     for i,s in enumerate(d.get("schedule",[])):
         label=f"com.elysian.{d['id']}.{i}"
         cal="".join(f"<dict><key>Weekday</key><integer>{wd}</integer><key>Hour</key><integer>{s['hour']}</integer><key>Minute</key><integer>{s['minute']}</integer></dict>" for wd in s["days"])

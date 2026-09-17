@@ -93,11 +93,33 @@ if "plan:2026-09-12-launch-media-plan" in nodes: link("plan:2026-09-12-launch-me
 # marketing reads sales
 for l in links[:]:
     pass
+FOLDER={d["id"]:d["folder"] for d in MAN["departments"]}
+def mtime(p):
+    return datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M") if p.exists() else None
+FUNCS=[]
+for f in MAN.get("functions",[]):
+    if f["from"] in FOLDER and f["to"] in FOLDER:
+        hp=HQ.parent/FOLDER[f["from"]]/"live/handoffs"/(f["to"]+".md")
+        link(f["from"],f["to"],"fn:"+f["name"])
+        FUNCS.append({"from":f["from"],"to":f["to"],"name":f["name"],"what":f["what"],"written":mtime(hp)})
+REPORTS={}
+for did,folder in FOLDER.items():
+    rp=HQ.parent/folder/"live/report.md"
+    link(did,"orbit","reports")
+    REPORTS[did]=mtime(rp)
+    if rp.exists(): nodes[did]["report"]=rp.read_text(errors="ignore")[:2200]
+ms=HQ.parent/"moonshelter"
+if (ms/"live/today.md").exists():
+    t=(ms/"live/today.md").read_text(errors="ignore"); i=t.find("\n## ")
+    if i>=0: nodes["orbit"]["report"]=t[i+1:i+2600]
+dec=(ms/"live/decisions.md").read_text(errors="ignore") if (ms/"live/decisions.md").exists() else ""
+DEC_NEW=sum(1 for l in dec.splitlines() if l.startswith("20") and "NEW" in l)
+nodes["orbit"]["meta"]="Kamel · every department reports here"
 def sh(c,cwd): 
     try: return subprocess.check_output(c,cwd=cwd,shell=True,text=True).strip()
     except Exception: return ""
 status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
-meta={"status":status,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
+meta={"status":status,"functions":FUNCS,"reports":REPORTS,"decisions_new":DEC_NEW,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 def publicize(G):
     """Public copy: no agent names, no developer contacts or commission, no action text."""
@@ -116,6 +138,8 @@ def publicize(G):
         elif n["type"]=="Idea":
             n["meta"]=""
         idmap[old]=n["id"]
+    for n in P["nodes"]: n.pop("report",None)
+    for f in P["meta"].get("functions",[]): f["what"]=""
     for l in P["links"]:
         l["source"]=idmap.get(l["source"],l["source"]); l["target"]=idmap.get(l["target"],l["target"])
     if "status" in P["meta"]:
@@ -162,7 +186,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 .tip{position:fixed;z-index:3;pointer-events:none;display:none;background:rgba(10,16,26,.95);border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-width:280px;font-size:12.5px;backdrop-filter:blur(10px)}
 .tip .n{font-weight:600;font-size:14px}.tip .t{color:var(--gold);font:500 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;margin:2px 0 6px}
 .tip .m{color:var(--ink2)}.tip .c{color:var(--dim);margin-top:6px;font-size:11.5px}
-.focus{position:fixed;z-index:2;right:22px;top:92px;width:290px;display:none;background:rgba(12,18,28,.86);border:1px solid var(--line);border-radius:12px;padding:14px 16px;backdrop-filter:blur(10px)}
+.focus{position:fixed;z-index:2;right:22px;top:92px;width:360px;display:none;background:rgba(12,18,28,.86);border:1px solid var(--line);border-radius:12px;padding:14px 16px;backdrop-filter:blur(10px)}
 .focus .n{font:400 20px "DM Serif Display",Georgia,serif}.focus .t{color:var(--gold);font:500 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase}
 .focus ul{margin:8px 0 0;padding:0;list-style:none;max-height:40vh;overflow:auto}.focus li{padding:4px 0;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer}.focus li b{color:var(--ink2);font-weight:400;font-family:"IBM Plex Mono",monospace;font-size:11px}
 .focus .x{float:right;cursor:pointer;color:var(--ink2)}
@@ -200,13 +224,15 @@ G.nodes.forEach(n=>{if(BOT[n.id]){const st=botState(BOT[n.id]);n.meta=(n.meta?n.
 const hidden=new Set();let labels=true,mode='3d',rotating=true,query='';
 document.getElementById('sub').textContent=`${G.nodes.length} nodes · ${G.links.length} links · built ${G.meta.built}`;
 document.getElementById('bots').innerHTML=DEPTS.map(d=>{const st=botState(d.id);return `<div style="margin-top:3px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${st.c};box-shadow:0 0 8px ${st.c};margin-right:8px"></i><b style="color:${d.color}">${d.name}</b> <span style="color:var(--ink2)">${st.s} · ${nextRun(d)}</span></div>`}).join('');
+const FN=G.meta.functions||[],RP=G.meta.reports||{};const nm=id=>(DEPTS.find(d=>d.id===id)||{name:id}).name;
+document.getElementById('bots').innerHTML+=`<div style="margin-top:8px;color:var(--ink2)"><b style="color:var(--ink)">Reports in to Moon Shelter:</b> ${DEPTS.map(d=>`${d.name} ${RP[d.id]?'✓ '+RP[d.id].slice(5):'— none yet'}`).join(' · ')}${G.meta.decisions_new?` · <b style="color:var(--gold)">${G.meta.decisions_new} new decisions out</b>`:''}</div><div style="margin-top:4px;color:var(--ink2)"><b style="color:var(--ink)">Functions:</b> ${FN.map(f=>`${nm(f.from)} → ${nm(f.to)} <i style="font-style:normal;color:${f.written?'#7BD3A0':'#56697A'}">${f.name}${f.written?' ✓':''}</i>`).join(' · ')}</div>`;
 const leg=document.getElementById('leg');
 Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<span><i style="background:${COL[t]}"></i>${t}</span><b>${c}</b>`;r.onclick=()=>{hidden.has(t)?hidden.delete(t):hidden.add(t);r.classList.toggle('off');redraw()};leg.appendChild(r)});
 function visible(){const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!query||n.label.toLowerCase().includes(query)||n.type.toLowerCase().includes(query)));const ids=new Set(ns.map(n=>n.id));const ls=G.links.filter(l=>ids.has(typeof l.source==='object'?l.source.id:l.source)&&ids.has(typeof l.target==='object'?l.target.id:l.target)).map(l=>({source:typeof l.source==='object'?l.source.id:l.source,target:typeof l.target==='object'?l.target.id:l.target,rel:l.rel}));return {nodes:ns.map(n=>({...n})),links:ls}}
 const tip=document.getElementById('tip'),focus=document.getElementById('focus');
 function topLinks(n,k){return G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).slice(0,k).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return `<span style="color:var(--dim)">${l.rel}</span> ${byId[o]?byId[o].label:o}`})}
 function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra='';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
-function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div><ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
+function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div>${n.report?`<pre style="white-space:pre-wrap;font:12px/1.45 IBM Plex Sans,sans-serif;color:var(--ink);background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0 0;max-height:34vh;overflow:auto">${n.report.replace(/</g,'&lt;')}</pre>`:''}<ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
 let g3,g2;const el=document.getElementById('g');
 function nodeSize(n){return Math.max(2,n.size*(0.9+Math.min(deg[n.id]||0,12)/12))}
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
@@ -219,9 +245,9 @@ function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=ne
 function addStars(scene){const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const c=Math.random()>.9?new THREE.Color('#E0B45C'):Math.random()>.85?new THREE.Color('#39C9B6'):new THREE.Color('#C8DDE8');colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
 function build3(){el.innerHTML='';g3=ForceGraph3D()(el).backgroundColor('#06090F').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
- .linkCurvature(.18).linkColor(l=>l.rel==='loads'?'rgba(57,201,182,.45)':l.rel==='owns'||l.rel==='runs'?'rgba(224,180,92,.7)':l.rel==='member'?'rgba(242,127,165,.28)':'rgba(140,160,190,.25)').linkWidth(l=>l.rel==='owns'?1.4:l.rel==='runs'?1:.45).linkOpacity(.6)
- .linkDirectionalParticles(l=>l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(l=>l.rel==='loads'?'#39C9B6':'#E0B45C')
- .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#E0B45C">${l.rel}</b> ${(l.target.label||l.target)}</span>`)
+ .linkCurvature(l=>l.rel.startsWith('fn:')?.35:.18).linkColor(l=>l.rel.startsWith('fn:')?'rgba(255,255,255,.85)':l.rel==='reports'?'rgba(224,180,92,.95)':l.rel==='loads'?'rgba(57,201,182,.45)':l.rel==='owns'||l.rel==='runs'?'rgba(224,180,92,.7)':l.rel==='member'?'rgba(242,127,165,.28)':'rgba(140,160,190,.25)').linkWidth(l=>l.rel.startsWith('fn:')?2.2:l.rel==='reports'?2.6:l.rel==='owns'?1.4:l.rel==='runs'?1:.45).linkOpacity(.6)
+ .linkDirectionalParticles(l=>l.rel.startsWith('fn:')?5:l.rel==='reports'?6:l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(l=>l.rel.startsWith('fn:')||l.rel==='reports'?3:1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(l=>l.rel.startsWith('fn:')?'#FFFFFF':l.rel==='loads'?'#39C9B6':'#E0B45C')
+ .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#E0B45C">${l.rel.replace('fn:','hands over: ')}</b> ${(l.target.label||l.target)}</span>`)
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g3.graph2ScreenCoords(n.x,n.y,n.z);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
  const scene=g3.scene();scene.add(new THREE.AmbientLight(0x8899aa,.9));const key=new THREE.DirectionalLight(0xffffff,1.1);key.position.set(200,300,250);scene.add(key);const rim=new THREE.PointLight(0x39C9B6,.9,900);rim.position.set(-250,-120,-200);scene.add(rim);addStars(scene);
  g3.d3Force('charge').strength(-95);g3.d3Force('center',null);g3.d3Force('link').distance(l=>l.rel==='member'?18:l.rel==='owns'?75:l.rel==='loads'?42:32);
