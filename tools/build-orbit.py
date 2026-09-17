@@ -45,9 +45,10 @@ def files(root,dept,prefix):
                 tgt=f"{prefix}:{item}"
             else: continue
             link(f"{prefix}:do/{p.name}",tgt,"loads")
-files(B,"sales","brain"); files(M,"mkt-advisor","mkt")
+files(B,"sales","brain"); files(M,"marketing","mkt")
+ACTIVE={d["folder"] for d in MAN["departments"]}
 for extra,prefix in (("crm","crm"),("people","people"),("advisory","advisory")):
-    if (HQ.parent/extra).exists(): files(HQ.parent/extra,extra,prefix)
+    if extra in ACTIVE and (HQ.parent/extra).exists(): files(HQ.parent/extra,extra,prefix)
 PREFIX={"brain":"brain","marketing-brain":"mkt","crm":"crm","people":"people","advisory":"advisory"}
 for d in MAN["departments"]:
     pf=PREFIX[d["folder"]]
@@ -76,10 +77,10 @@ for l in ideas.splitlines():
     if l.startswith("2026-"):
         c=cells(l)
         if len(c)>=2:
-            iid=add(f"idea:{c[1]}",c[1],"Idea","mkt-advisor",3.5,(c[2] if len(c)>2 else "")[:90]); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
+            iid=add(f"idea:{c[1]}",c[1],"Idea","marketing",3.5,(c[2] if len(c)>2 else "")[:90]); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
 for p in sorted((M/"live/plans").glob("*.md")):
-    pid=add(f"plan:{p.stem}",p.stem,"Plan","mkt-advisor",6,"live/plans"); link("mkt:do/campaign-planner.md",pid,"wrote"); link("mkt:do/media-planner.md",pid,"wrote"); link("mkt:live/plans.md",pid,"lists")
-for root,prefix,dept in ((B,"brain","sales"),(M,"mkt","mkt-advisor"),(HQ.parent/"crm","crm","crm"),(HQ.parent/"people","people","people"),(HQ.parent/"advisory","advisory","advisory")):
+    pid=add(f"plan:{p.stem}",p.stem,"Plan","marketing",6,"live/plans"); link("mkt:do/campaign-planner.md",pid,"wrote"); link("mkt:do/media-planner.md",pid,"wrote"); link("mkt:live/plans.md",pid,"lists")
+for root,prefix,dept in [x for x in ((B,"brain","sales"),(M,"mkt","marketing"),(HQ.parent/"crm","crm","crm"),(HQ.parent/"people","people","people"),(HQ.parent/"advisory","advisory","advisory")) if x[2] in {d["id"] for d in MAN["departments"]}]:
     a=root/"live/actions.md"
     if a.exists():
         for l in a.read_text(errors="ignore").splitlines():
