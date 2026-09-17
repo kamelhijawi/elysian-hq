@@ -69,13 +69,7 @@ for l in team.splitlines():
         link(tid,aid,"member")
         if "Team Leader" in c[4] or "Sales Manager" in c[4]: link("brain:ref/team.md",aid,"lead")
 link("brain:ref/team.md","team:Secondary","lists")
-# developers
-for l in (B/"ref/developers.md").read_text(errors="ignore").splitlines():
-    if l.startswith("| ") and not l.startswith("| Developer") and "|---" not in l:
-        c=cells(l)
-        if len(c)>=3 and not c[0].startswith("<<"):
-            did=add(f"dev:{c[0]}",c[0],"Developer","sales",6,f"{c[1]} · {c[3]} · {c[2]}")
-            link("brain:ref/developers.md",did,"tracks"); link("brain:do/developer-outreach.md",did,"pitches")
+# developers: removed from the graph at Kamel's request (2026-09-17)
 # ideas, plans, actions
 ideas=(M/"live/ideas.md").read_text(errors="ignore") if (M/"live/ideas.md").exists() else ""
 for l in ideas.splitlines():
@@ -192,7 +186,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 <script src="https://cdn.jsdelivr.net/npm/force-graph@1.43.5/dist/force-graph.min.js"></script>
 <script>
 const G=__DATA__;
-const COL={"HQ":"#FFF1C7","Department":"#E0B45C","Bot":"#7BD3A0","Recipe":"#39C9B6","Reference":"#5DA9E9","Live log":"#B58CF6","Agent":"#F27FA5","Team":"#F2A65A","Developer":"#F06C6C","Idea":"#C9A8FF","Plan":"#5EE6D0","Open action":"#9AA9B3"};
+const COL={"HQ":"#FFF1C7","Department":"#E0B45C","Bot":"#7BD3A0","Recipe":"#39C9B6","Reference":"#5DA9E9","Live log":"#B58CF6","Agent":"#F27FA5","Team":"#F2A65A","Idea":"#C9A8FF","Plan":"#5EE6D0","Open action":"#9AA9B3"};
 const DEPTS=G.meta.departments||[];const DCOL=Object.fromEntries(DEPTS.map(d=>[d.id,d.color]));
 G.nodes.forEach(n=>{if(n.id==='orbit'){n.fx=0;n.fy=0;n.fz=0}const i=DEPTS.findIndex(d=>d.id===n.id);if(i>=0){const a=i/DEPTS.length*Math.PI*2-Math.PI/2;n.fx=Math.cos(a)*190;n.fy=Math.sin(a)*190;n.fz=0}});
 const byId=Object.fromEntries(G.nodes.map(n=>[n.id,n]));
