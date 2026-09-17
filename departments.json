@@ -1,0 +1,201 @@
+{
+ "centre": "Moon Shelter",
+ "departments": [
+  {
+   "id": "sales",
+   "name": "Sales",
+   "folder": "brain",
+   "engine": "claude",
+   "color": "#39C9B6",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "mcp__claude_ai_Zapier__inspect_zapier_actions",
+    "mcp__claude_ai_Zapier__execute_zapier_read_action",
+    "mcp__claude_ai_Zapier__list_zapier_connections"
+   ],
+   "schedule": [
+    {
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "hour": 7,
+     "minute": 0,
+     "recipe": "do/daily-pulse.md",
+     "label": "daily pulse"
+    },
+    {
+     "days": [
+      1
+     ],
+     "hour": 7,
+     "minute": 20,
+     "recipe": "do/weekly-meeting.md",
+     "label": "Monday brief"
+    }
+   ]
+  },
+  {
+   "id": "crm",
+   "name": "CRM & Data Hygiene",
+   "folder": "crm",
+   "engine": "claude",
+   "color": "#5DA9E9",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "mcp__claude_ai_Zapier__inspect_zapier_actions",
+    "mcp__claude_ai_Zapier__execute_zapier_read_action",
+    "mcp__claude_ai_Zapier__list_zapier_connections"
+   ],
+   "schedule": [
+    {
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "hour": 6,
+     "minute": 30,
+     "recipe": "do/hygiene-sweep.md",
+     "label": "hygiene sweep"
+    }
+   ]
+  },
+  {
+   "id": "people",
+   "name": "People & Coaching",
+   "folder": "people",
+   "engine": "claude",
+   "color": "#F27FA5",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "mcp__claude_ai_Zapier__inspect_zapier_actions",
+    "mcp__claude_ai_Zapier__execute_zapier_read_action",
+    "mcp__claude_ai_Zapier__list_zapier_connections"
+   ],
+   "schedule": [
+    {
+     "days": [
+      0
+     ],
+     "hour": 18,
+     "minute": 0,
+     "recipe": "do/scorecards.md",
+     "label": "weekly scorecards"
+    }
+   ]
+  },
+  {
+   "id": "mkt-advisor",
+   "name": "Marketing Advisor",
+   "folder": "marketing-brain",
+   "engine": "claude",
+   "color": "#E0B45C",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "WebSearch",
+    "WebFetch"
+   ],
+   "recipes": [
+    "do/market-analyst.md",
+    "do/creative-director.md",
+    "do/campaign-planner.md"
+   ],
+   "schedule": [
+    {
+     "days": [
+      0
+     ],
+     "hour": 8,
+     "minute": 0,
+     "recipe": "do/market-analyst.md",
+     "label": "market read"
+    },
+    {
+     "days": [
+      0
+     ],
+     "hour": 8,
+     "minute": 40,
+     "recipe": "do/creative-director.md",
+     "label": "idea bank"
+    }
+   ]
+  },
+  {
+   "id": "media",
+   "name": "Media Planning",
+   "folder": "marketing-brain",
+   "engine": "claude",
+   "color": "#C9A8FF",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "mcp__claude_ai_Zapier__inspect_zapier_actions",
+    "mcp__claude_ai_Zapier__execute_zapier_read_action",
+    "mcp__claude_ai_Zapier__list_zapier_connections",
+    "WebSearch"
+   ],
+   "recipes": [
+    "do/reporter.md",
+    "do/media-planner.md"
+   ],
+   "schedule": [
+    {
+     "days": [
+      1
+     ],
+     "hour": 6,
+     "minute": 45,
+     "recipe": "do/reporter.md",
+     "label": "channel report"
+    }
+   ]
+  },
+  {
+   "id": "advisory",
+   "name": "Client Advisory",
+   "folder": "advisory",
+   "engine": "claude",
+   "color": "#7BD3A0",
+   "tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep"
+   ],
+   "schedule": []
+  }
+ ]
+}

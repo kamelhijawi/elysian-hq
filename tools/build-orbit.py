@@ -12,11 +12,15 @@ def link(a,b,rel):
 def cells(line): return [c.strip() for c in line.strip().strip("|").split("|")]
 # centre + departments
 add("orbit","Moon Shelter","HQ","hq",16,"Elysian HQ · the centre")
-add("sales","Sales department","Department","sales",12,"brain/")
-add("marketing","Marketing department","Department","marketing",12,"marketing-brain/")
-link("orbit","sales","owns"); link("orbit","marketing","owns")
-add("bot:monday","Monday bot","Bot","sales",7,"Claude headless · every Monday 07:00"); link("sales","bot:monday","runs")
-add("bot:grok","Grok bot","Bot","marketing",7,"grok-4.6 · Sun 08:00"); link("marketing","bot:grok","runs")
+MAN=json.loads((HQ/"departments.json").read_text())
+DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+def sched_text(d):
+    if not d.get("schedule"): return "on demand"
+    return " · ".join(f"{s['label']} {'/'.join(DAYS[x] for x in s['days']) if len(s['days'])<5 else 'Mon–Fri'} {s['hour']:02d}:{s['minute']:02d}" for s in d["schedule"])
+for d in MAN["departments"]:
+    add(d["id"],d["name"],"Department",d["id"],12,f"{d['folder']}/ · {sched_text(d)}")
+    link("orbit",d["id"],"owns")
+    add(f"bot:{d['id']}",f"{d['name']} bot","Bot",d["id"],7,f"{d['engine']} · {sched_text(d)}"); link(d["id"],f"bot:{d['id']}","runs")
 def files(root,dept,prefix):
     for layer in ("ref","live","do"):
         d=root/layer
@@ -41,9 +45,17 @@ def files(root,dept,prefix):
                 tgt=f"{prefix}:{item}"
             else: continue
             link(f"{prefix}:do/{p.name}",tgt,"loads")
-files(B,"sales","brain"); files(M,"marketing","mkt")
-link("bot:monday","brain:do/weekly-meeting.md","runs")
-for r in ("market-analyst","creative-director"): link("bot:grok",f"mkt:do/{r}.md","runs")
+files(B,"sales","brain"); files(M,"mkt-advisor","mkt")
+for extra,prefix in (("crm","crm"),("people","people"),("advisory","advisory")):
+    if (HQ.parent/extra).exists(): files(HQ.parent/extra,extra,prefix)
+PREFIX={"brain":"brain","marketing-brain":"mkt","crm":"crm","people":"people","advisory":"advisory"}
+for d in MAN["departments"]:
+    pf=PREFIX[d["folder"]]
+    for r in d.get("recipes",[]):            # recipes this department owns inside a shared folder
+        rid=f"{pf}:{r}"
+        if rid in nodes:
+            nodes[rid]["group"]=d["id"]; link(d["id"],rid,"do")
+    for sc in d.get("schedule",[]): link(f"bot:{d['id']}",f"{pf}:{sc['recipe']}","runs")
 # team: agents + teams
 team=(B/"ref/team.md").read_text(errors="ignore")
 for l in team.splitlines():
@@ -70,10 +82,10 @@ for l in ideas.splitlines():
     if l.startswith("2026-"):
         c=cells(l)
         if len(c)>=2:
-            iid=add(f"idea:{c[1]}",c[1],"Idea","marketing",3.5,(c[2] if len(c)>2 else "")[:90]); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
+            iid=add(f"idea:{c[1]}",c[1],"Idea","mkt-advisor",3.5,(c[2] if len(c)>2 else "")[:90]); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
 for p in sorted((M/"live/plans").glob("*.md")):
-    pid=add(f"plan:{p.stem}",p.stem,"Plan","marketing",6,"live/plans"); link("mkt:do/campaign-planner.md",pid,"wrote"); link("mkt:do/media-planner.md",pid,"wrote"); link("mkt:live/plans.md",pid,"lists")
-for root,prefix,dept in ((B,"brain","sales"),(M,"mkt","marketing")):
+    pid=add(f"plan:{p.stem}",p.stem,"Plan","mkt-advisor",6,"live/plans"); link("mkt:do/campaign-planner.md",pid,"wrote"); link("mkt:do/media-planner.md",pid,"wrote"); link("mkt:live/plans.md",pid,"lists")
+for root,prefix,dept in ((B,"brain","sales"),(M,"mkt","mkt-advisor"),(HQ.parent/"crm","crm","crm"),(HQ.parent/"people","people","people"),(HQ.parent/"advisory","advisory","advisory")):
     a=root/"live/actions.md"
     if a.exists():
         for l in a.read_text(errors="ignore").splitlines():
@@ -90,7 +102,7 @@ def sh(c,cwd):
     try: return subprocess.check_output(c,cwd=cwd,shell=True,text=True).strip()
     except Exception: return ""
 status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
-meta={"status":status,"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
+meta={"status":status,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 def publicize(G):
     """Public copy: no agent names, no developer contacts or commission, no action text."""
@@ -181,27 +193,29 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 <script>
 const G=__DATA__;
 const COL={"HQ":"#FFF1C7","Department":"#E0B45C","Bot":"#7BD3A0","Recipe":"#39C9B6","Reference":"#5DA9E9","Live log":"#B58CF6","Agent":"#F27FA5","Team":"#F2A65A","Developer":"#F06C6C","Idea":"#C9A8FF","Plan":"#5EE6D0","Open action":"#9AA9B3"};
-G.nodes.forEach(n=>{if(n.id==='orbit'){n.fx=0;n.fy=0;n.fz=0}else if(n.id==='sales'){n.fx=-150;n.fy=0;n.fz=0}else if(n.id==='marketing'){n.fx=150;n.fy=0;n.fz=0}});
+const DEPTS=G.meta.departments||[];const DCOL=Object.fromEntries(DEPTS.map(d=>[d.id,d.color]));
+G.nodes.forEach(n=>{if(n.id==='orbit'){n.fx=0;n.fy=0;n.fz=0}const i=DEPTS.findIndex(d=>d.id===n.id);if(i>=0){const a=i/DEPTS.length*Math.PI*2-Math.PI/2;n.fx=Math.cos(a)*190;n.fy=Math.sin(a)*190;n.fz=0}});
 const byId=Object.fromEntries(G.nodes.map(n=>[n.id,n]));
 const deg={};G.links.forEach(l=>{deg[l.source]=(deg[l.source]||0)+1;deg[l.target]=(deg[l.target]||0)+1});
 const counts={};G.nodes.forEach(n=>counts[n.type]=(counts[n.type]||0)+1);
 const ST=G.meta.status||{};function botState(k){const b=ST[k];if(!b)return{s:'never run',c:'#56697A'};if(b.state==='running')return{s:'running since '+b.started,c:'#E0B45C'};if(b.state==='failed')return{s:'failed '+b.finished+' · '+(b.note||''),c:'#F06C6C'};const h=(Date.now()-new Date(b.finished.replace(' ','T')).getTime())/36e5;return{s:(h<24?'active · ':'idle · ')+'last ok '+b.finished+' · '+(b.note||''),c:h<24?'#7BD3A0':'#93A4B3'}}
-const BOT={'bot:monday':'sales','bot:grok':'marketing','sales':'sales','marketing':'marketing'};
+const BOT={};DEPTS.forEach(d=>{BOT[d.id]=d.id;BOT['bot:'+d.id]=d.id});
+function nextRun(d){if(!d.schedule.length)return 'on demand';const now=new Date();let best=null;d.schedule.forEach(s=>s.days.forEach(wd=>{for(let k=0;k<8;k++){const t=new Date(now);t.setDate(now.getDate()+k);t.setHours(s.hour,s.minute,0,0);if(t.getDay()===wd&&t>now){if(!best||t<best.t)best={t,label:s.label};break}}}));return best?`next ${best.label} ${best.t.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'})}`:''}
 G.nodes.forEach(n=>{if(BOT[n.id]){const st=botState(BOT[n.id]);n.meta=(n.meta?n.meta+' · ':'')+st.s;n.stateColor=st.c}});
 const hidden=new Set();let labels=true,mode='3d',rotating=true,query='';
 document.getElementById('sub').textContent=`${G.nodes.length} nodes · ${G.links.length} links · built ${G.meta.built}`;
-document.getElementById('bots').innerHTML=['sales','marketing'].map(k=>{const st=botState(k);return `<span style="display:inline-block;margin-right:16px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${st.c};box-shadow:0 0 8px ${st.c};margin-right:7px"></i><b style="color:var(--ink)">${k}</b> ${st.s}</span>`}).join('');
+document.getElementById('bots').innerHTML=DEPTS.map(d=>{const st=botState(d.id);return `<div style="margin-top:3px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${st.c};box-shadow:0 0 8px ${st.c};margin-right:8px"></i><b style="color:${d.color}">${d.name}</b> <span style="color:var(--ink2)">${st.s} · ${nextRun(d)}</span></div>`}).join('');
 const leg=document.getElementById('leg');
 Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<span><i style="background:${COL[t]}"></i>${t}</span><b>${c}</b>`;r.onclick=()=>{hidden.has(t)?hidden.delete(t):hidden.add(t);r.classList.toggle('off');redraw()};leg.appendChild(r)});
 function visible(){const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!query||n.label.toLowerCase().includes(query)||n.type.toLowerCase().includes(query)));const ids=new Set(ns.map(n=>n.id));const ls=G.links.filter(l=>ids.has(typeof l.source==='object'?l.source.id:l.source)&&ids.has(typeof l.target==='object'?l.target.id:l.target)).map(l=>({source:typeof l.source==='object'?l.source.id:l.source,target:typeof l.target==='object'?l.target.id:l.target,rel:l.rel}));return {nodes:ns.map(n=>({...n})),links:ls}}
 const tip=document.getElementById('tip'),focus=document.getElementById('focus');
 function topLinks(n,k){return G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).slice(0,k).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return `<span style="color:var(--dim)">${l.rel}</span> ${byId[o]?byId[o].label:o}`})}
-function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra=n.id==='sales'?`<div class="m">${counts.Agent} agents · ${counts.Developer} developers · ${counts.Team} teams</div>`:n.id==='marketing'?`<div class="m">${counts.Idea} ideas · ${counts.Plan} plan · ${counts.Recipe-7} roles</div>`:'';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
+function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra='';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
 function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div><ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
 let g3,g2;const el=document.getElementById('g');
 function nodeSize(n){return Math.max(2,n.size*(0.9+Math.min(deg[n.id]||0,12)/12))}
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
-function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(COL[n.type]);const grp=new THREE.Group();
+function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(n.type==='Department'&&DCOL[n.id]?DCOL[n.id]:COL[n.type]);const grp=new THREE.Group();
  const seg=n.type==='Agent'?12:24;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:n.type==='HQ'?.9:n.type==='Department'?.6:.35,shininess:60,specular:0x334455});
  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
  const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?.25:.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
