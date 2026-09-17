@@ -92,10 +92,34 @@ def sh(c,cwd):
 status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
 meta={"status":status,"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
-(HQ/"graph.json").write_text(json.dumps(G),encoding="utf-8")
+def publicize(G):
+    """Public copy: no agent names, no developer contacts or commission, no action text."""
+    import copy; P=copy.deepcopy(G); idmap={}; a=c=0
+    for n in P["nodes"]:
+        old=n["id"]
+        if n["type"]=="Agent":
+            a+=1; n["label"]=f"Agent {a:02d}"; n["meta"]=""; n["id"]=f"agent:{a:02d}"
+        elif n["type"]=="Developer":
+            n["meta"]="developer"
+        elif n["type"]=="Open action":
+            c+=1; due=(n.get("meta") or "").split("due ")[-1] if "due " in (n.get("meta") or "") else ""
+            n["label"]=f"Action {c:02d}"; n["meta"]=(f"due {due}" if due and "fill" not in due else "open"); n["id"]=f"act:{c:02d}"
+        elif n["type"]=="Team" and n["label"] not in ("Secondary","ELITE","UAE Nationals","Unassigned"):
+            n["label"]="Team"
+        elif n["type"]=="Idea":
+            n["meta"]=""
+        idmap[old]=n["id"]
+    for l in P["links"]:
+        l["source"]=idmap.get(l["source"],l["source"]); l["target"]=idmap.get(l["target"],l["target"])
+    if "status" in P["meta"]:
+        for b in P["meta"]["status"].values(): b["note"]=""
+    return P
+PUB=publicize(G)
+(HQ/"graph.json").write_text(json.dumps(PUB),encoding="utf-8")
 counts={}
 for n in nodes.values(): counts[n["type"]]=counts.get(n["type"],0)+1
-J=json.dumps(G)
+J=json.dumps(PUB)
+J_PRIVATE=json.dumps(G)
 page=r"""<title>Moon Shelter</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -210,6 +234,8 @@ document.getElementById('q').oninput=e=>{query=e.target.value.trim().toLowerCase
 build3();status();
 </script>
 """
+(HQ/"private").mkdir(exist_ok=True)
+(HQ/"private/index.html").write_text(page.replace("__DATA__",J_PRIVATE).replace("<span>live</span>","<span>private</span>"),encoding="utf-8")
 page=page.replace("__DATA__",J)
 (HQ/"index.html").write_text(page,encoding="utf-8")
 print(json.dumps({"nodes":len(nodes),"links":len(links),"types":counts}))
