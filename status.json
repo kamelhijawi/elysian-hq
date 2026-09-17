@@ -3,5 +3,10 @@
   "state": "running",
   "note": "do/daily-pulse.md",
   "started": "2026-09-17 08:10"
+ },
+ "crm": {
+  "state": "running",
+  "note": "do/hygiene-sweep.md",
+  "started": "2026-09-17 08:10"
  }
 }
