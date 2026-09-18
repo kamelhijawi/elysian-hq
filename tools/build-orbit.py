@@ -66,7 +66,7 @@ for l in team.splitlines():
         name=c[0]; t=c[1] if not c[1].startswith("<<") else "Unassigned"
         tid=add(f"team:{t}",t,"Team","sales",7,"team")
         link("sales",tid,"team")
-        aid=add(f"agent:{name}",name,"Agent","sales",2.5,c[4][:60])
+        aid=add(f"agent:{name}",name,"Agent","sales",2.5,(c[4]+(" · "+c[5] if len(c)>6 and c[5] else ""))[:60])
         link(tid,aid,"member")
         if "Team Leader" in c[4] or "Sales Manager" in c[4]: link("brain:ref/team.md",aid,"lead")
 link("brain:ref/team.md","team:Secondary","lists")
