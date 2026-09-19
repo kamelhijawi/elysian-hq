@@ -218,7 +218,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 </style>
 <div id="g"></div>
 <div class="ui top">
-  <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div><div class="sub" id="bots" style="margin-top:8px"></div></div>
+  <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div><details style="margin-top:8px;max-width:440px"><summary style="cursor:pointer;color:var(--teal);font:500 12px IBM Plex Mono,monospace;letter-spacing:.08em;text-transform:uppercase">Department status</summary><div class="sub" id="bots" style="margin-top:6px;background:rgba(12,18,28,.85);border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div></details></div>
   <div class="ctl">
     <input class="q" id="q" placeholder="Search nodes… agent, developer, file, idea">
     <div class="seg"><button id="b3" class="on">3D</button><button id="b2">2D</button></div>
@@ -269,7 +269,7 @@ function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=ne
  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
  const live=n.type==='Agent'&&n.stats?(n.stats.calls_7d>0?'#7BD3A0':'#F06C6C'):null;
  const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:live?new THREE.Color(live):(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?(n.stats?.55:.25):.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
- if(labels&&!(n.type==='Agent'&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Agent'?2.2:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor='rgba(6,9,15,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
+ if(labels&&!(n.type==='Agent'&&!G.meta.private&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Team'?4.2:n.type==='Agent'?2.6:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor='rgba(6,9,15,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
  return grp}
 function addStars(scene){const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const c=Math.random()>.9?new THREE.Color('#E0B45C'):Math.random()>.85?new THREE.Color('#39C9B6'):new THREE.Color('#C8DDE8');colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
@@ -283,7 +283,7 @@ function build3(){el.innerHTML='';g3=ForceGraph3D()(el).backgroundColor('#06090F
  const ctl=g3.controls();ctl.autoRotate=rotating;ctl.autoRotateSpeed=.45;ctl.enableDamping=true;
  setTimeout(()=>{g3.zoomToFit(700,70);setTimeout(()=>g3.cameraPosition(undefined,{x:0,y:0,z:0},600),750)},900)}
 function build2(){el.innerHTML='';g2=ForceGraph()(el).backgroundColor('#06090F').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(l=>l.rel==='loads'?'rgba(57,201,182,.45)':l.rel==='owns'?'rgba(224,180,92,.7)':'rgba(140,160,190,.25)').linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(l=>l.rel==='loads'?'#39C9B6':'#E0B45C')
- .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels)return;if(n.type==='Agent'&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
+ .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels)return;if(n.type==='Agent'&&!G.meta.private&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g2.graph2ScreenCoords(n.x,n.y);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
  g2.d3Force('charge').strength(-120);g2.d3Force('center',null);setTimeout(()=>g2.zoomToFit(600,40),900)}
 function focusNode(n){if(!n)return;showFocus(n);if(mode==='3d'&&g3){const d=90,r=Math.hypot(n.x,n.y,n.z)||1;g3.cameraPosition({x:n.x*(1+d/r),y:n.y*(1+d/r),z:n.z*(1+d/r)},n,1200)}else if(g2){g2.centerAt(n.x,n.y,800);g2.zoom(4,800)}}
@@ -299,7 +299,7 @@ build3();status();
 </script>
 """
 (HQ/"private").mkdir(exist_ok=True)
-(HQ/"private/index.html").write_text(page.replace("__DATA__",J_PRIVATE).replace("<span>live</span>","<span>private</span>"),encoding="utf-8")
+(HQ/"private/index.html").write_text(page.replace("const G=__DATA__;","const G=__DATA__;G.meta.private=true;").replace("__DATA__",J_PRIVATE).replace("<span>live</span>","<span>private</span>"),encoding="utf-8")
 page=page.replace("__DATA__",J)
 (HQ/"index.html").write_text(page,encoding="utf-8")
 print(json.dumps({"nodes":len(nodes),"links":len(links),"types":counts}))
