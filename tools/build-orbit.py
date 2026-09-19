@@ -9,6 +9,7 @@ def add(id_,label,type_,group,size=4,meta=""):
     return id_
 def link(a,b,rel):
     if a in nodes and b in nodes and a!=b: links.append({"source":a,"target":b,"rel":rel})
+def norm_name(x): return re.sub(r'[^a-z]','',x.lower())[:14]
 def cells(line): return [c.strip() for c in line.strip().strip("|").split("|")]
 # centre + departments
 add("orbit","Moon Shelter","HQ","hq",16,"Elysian HQ · the centre")
@@ -57,19 +58,40 @@ for d in MAN["departments"]:
         if rid in nodes:
             nodes[rid]["group"]=d["id"]; link(d["id"],rid,"do")
     for sc in d.get("schedule",[]): link(f"bot:{d['id']}",f"{pf}:{sc['recipe']}","runs")
-# team: agents + teams
+# team: agents + teams, grouped under their lead (leads per brain/ref/team.md)
 team=(B/"ref/team.md").read_text(errors="ignore")
+LEADS={}
 for l in team.splitlines():
-    if l.startswith("| ") and not l.startswith("| Agent") and "Team 2 agents" not in l:
+    m=re.match(r"\s+- (.+?) — (.+?) — \d+",l)
+    if m: LEADS[m.group(2).strip()]=re.sub(r"\s*\(.*?\)","",m.group(1)).strip()
+STATS={}
+sp=B/"live/agent-stats.json"
+if sp.exists():
+    try: STATS=json.loads(sp.read_text())
+    except Exception: STATS={}
+AST=STATS.get("agents",{})
+KEYS=["leads_open","leads_new","leads_ytd","calls_ytd","calls_7d","whatsapp_ytd","meetings_ytd","closings_ytd","closings_value_ytd"]
+ROLL={}
+for l in team.splitlines():
+    if l.startswith("| ") and not l.startswith("| Agent") and "|---" not in l and "Team 2 agents" not in l:
         c=cells(l)
-        if len(c)<5 or c[0].startswith("<<"): continue
+        if len(c)<8 or c[0].startswith("<<"): continue
         name=c[0]; t=c[1] if not c[1].startswith("<<") else "Unassigned"
-        tid=add(f"team:{t}",t,"Team","sales",7,"team")
+        lead=LEADS.get(t,"")
+        tid=add(f"team:{t}",t,"Team","sales",9,f"lead: {lead}" if lead else "team")
         link("sales",tid,"team")
-        aid=add(f"agent:{name}",name,"Agent","sales",2.5,(c[4]+(" · "+c[5] if len(c)>6 and c[5] else ""))[:60])
+        role=c[4]+(" · "+c[5] if c[5] else "")
+        aid=add(f"agent:{name}",name,"Agent","sales",2.5,role[:70])
         link(tid,aid,"member")
-        if "Team Leader" in c[4] or "Sales Manager" in c[4]: link("brain:ref/team.md",aid,"lead")
-link("brain:ref/team.md","team:Secondary","lists")
+        st=AST.get(name)
+        if st:
+            nodes[aid]["stats"]={k:st.get(k) for k in KEYS}
+            r=ROLL.setdefault(t,{k:0 for k in KEYS}); r["agents"]=r.get("agents",0)+1
+            for k in KEYS: r[k]+= (st.get(k) or 0)
+        if lead and norm_name(lead)==norm_name(name): link(aid,tid,"leads"); nodes[aid]["size"]=5
+for t,r in ROLL.items():
+    if f"team:{t}" in nodes: nodes[f"team:{t}"]["stats"]=r
+    if LEADS.get(t,"").lower().startswith("kamel"): link("orbit",f"team:{t}","leads")
 # developers: removed from the graph at Kamel's request (2026-09-17)
 # ideas, plans, actions
 ideas=(M/"live/ideas.md").read_text(errors="ignore") if (M/"live/ideas.md").exists() else ""
@@ -119,7 +141,7 @@ def sh(c,cwd):
     try: return subprocess.check_output(c,cwd=cwd,shell=True,text=True).strip()
     except Exception: return ""
 status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
-meta={"status":status,"functions":FUNCS,"reports":REPORTS,"decisions_new":DEC_NEW,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
+meta={"status":status,"stats_built":STATS.get("built"),"stats_checks":STATS.get("checks"),"functions":FUNCS,"reports":REPORTS,"decisions_new":DEC_NEW,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 def publicize(G):
     """Public copy: no agent names, no developer contacts or commission, no action text."""
@@ -133,12 +155,15 @@ def publicize(G):
         elif n["type"]=="Open action":
             c+=1; due=(n.get("meta") or "").split("due ")[-1] if "due " in (n.get("meta") or "") else ""
             n["label"]=f"Action {c:02d}"; n["meta"]=(f"due {due}" if due and "fill" not in due else "open"); n["id"]=f"act:{c:02d}"
-        elif n["type"]=="Team" and n["label"] not in ("Secondary","ELITE","UAE Nationals","Unassigned"):
+        elif n["type"]=="Team" and n["label"] not in ("Secondary","ELITE","UAE Nationals","Unassigned","Team 1","Team 2","Team 3"):
             n["label"]="Team"
         elif n["type"]=="Idea":
             n["meta"]=""
         idmap[old]=n["id"]
-    for n in P["nodes"]: n.pop("report",None)
+    for n in P["nodes"]:
+        n.pop("report",None); n.pop("stats",None)
+        if n["type"]=="Team": n["meta"]="team"
+    P["meta"].pop("stats_checks",None)
     for f in P["meta"].get("functions",[]): f["what"]=""
     for l in P["links"]:
         l["source"]=idmap.get(l["source"],l["source"]); l["target"]=idmap.get(l["target"],l["target"])
@@ -232,15 +257,19 @@ function visible(){const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!query||n.la
 const tip=document.getElementById('tip'),focus=document.getElementById('focus');
 function topLinks(n,k){return G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).slice(0,k).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return `<span style="color:var(--dim)">${l.rel}</span> ${byId[o]?byId[o].label:o}`})}
 function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra='';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
-function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div>${n.report?`<pre style="white-space:pre-wrap;font:12px/1.45 IBM Plex Sans,sans-serif;color:var(--ink);background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0 0;max-height:34vh;overflow:auto">${n.report.replace(/</g,'&lt;')}</pre>`:''}<ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
+const SL={leads_open:'Leads open',leads_new:'of which New',leads_ytd:'Leads YTD',calls_ytd:'Calls YTD',calls_7d:'Calls, last 7d',whatsapp_ytd:'WhatsApp YTD',meetings_ytd:'Meetings YTD',closings_ytd:'Closings YTD',closings_value_ytd:'Closing value YTD'};
+function statCard(n){const s=n.stats;const fmt=(k,v)=>v==null?'—':(k==='closings_value_ytd'?'AED '+Math.round(v).toLocaleString():Math.round(v).toLocaleString());
+ return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">${Object.keys(SL).map(k=>`<div style="background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:7px 8px"><div style="font:500 16px IBM Plex Sans;color:${(k==='calls_7d'&&!s[k])||(k==='leads_new'&&s[k]>20)?'#F08C84':'var(--ink)'}">${fmt(k,s[k])}</div><div style="font-size:10.5px;color:var(--ink2)">${SL[k]}</div></div>`).join('')}</div>${s.agents?`<div style="font-size:11px;color:var(--dim);margin-top:6px">${s.agents} agents with Salesforce data</div>`:''}<div style="font-size:11px;color:var(--dim);margin-top:4px">Salesforce · built ${G.meta.stats_built||''}</div>`}
+function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div>${n.stats?statCard(n):''}${n.report?`<pre style="white-space:pre-wrap;font:12px/1.45 IBM Plex Sans,sans-serif;color:var(--ink);background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0 0;max-height:34vh;overflow:auto">${n.report.replace(/</g,'&lt;')}</pre>`:''}<ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
 let g3,g2;const el=document.getElementById('g');
 function nodeSize(n){return Math.max(2,n.size*(0.9+Math.min(deg[n.id]||0,12)/12))}
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
 function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(n.type==='Department'&&DCOL[n.id]?DCOL[n.id]:COL[n.type]);const grp=new THREE.Group();
  const seg=n.type==='Agent'?12:24;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:n.type==='HQ'?.9:n.type==='Department'?.6:.35,shininess:60,specular:0x334455});
  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
- const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?.25:.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
- if(labels&&!(n.type==='Agent'&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Agent'?2.2:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor='rgba(6,9,15,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
+ const live=n.type==='Agent'&&n.stats?(n.stats.calls_7d>0?'#7BD3A0':'#F06C6C'):null;
+ const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:live?new THREE.Color(live):(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:n.type==='HQ'?.9:n.type==='Department'?.7:n.type==='Agent'?(n.stats?.55:.25):.45,depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?7:n.type==='Department'?5.5:3.2);glow.scale.set(gs,gs,1);grp.add(glow);
+ if(labels&&!(n.type==='Agent'&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Agent'?2.2:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor='rgba(6,9,15,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
  return grp}
 function addStars(scene){const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const c=Math.random()>.9?new THREE.Color('#E0B45C'):Math.random()>.85?new THREE.Color('#39C9B6'):new THREE.Color('#C8DDE8');colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
