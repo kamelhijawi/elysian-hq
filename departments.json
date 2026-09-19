@@ -104,6 +104,19 @@
     },
     {
      "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "hour": 7,
+     "minute": 10,
+     "recipe": "do/agent-stats.md",
+     "label": "agent stats"
+    },
+    {
+     "days": [
       1
      ],
      "hour": 7,
