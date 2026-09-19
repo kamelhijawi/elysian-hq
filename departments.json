@@ -43,7 +43,7 @@
    "name": "CRM",
    "folder": "crm",
    "engine": "claude",
-   "color": "#5DA9E9",
+   "color": "#93C5FD",
    "tools": [
     "Bash",
     "Read",
@@ -76,7 +76,7 @@
    "name": "Sales",
    "folder": "brain",
    "engine": "claude",
-   "color": "#39C9B6",
+   "color": "#6EE7B7",
    "tools": [
     "Bash",
     "Read",
@@ -131,7 +131,7 @@
    "name": "Marketing",
    "folder": "marketing-brain",
    "engine": "claude",
-   "color": "#E0B45C",
+   "color": "#C4B5FD",
    "tools": [
     "Bash",
     "Edit",
