@@ -12,14 +12,14 @@ def link(a,b,rel):
 def norm_name(x): return re.sub(r'[^a-z]','',x.lower())[:14]
 def cells(line): return [c.strip() for c in line.strip().strip("|").split("|")]
 # centre + departments
-add("orbit","Moon Shelter","HQ","hq",16,"Elysian HQ · the centre")
+add("orbit","Moon Shelter","HQ","hq",22,"Elysian HQ · the centre")
 MAN=json.loads((HQ/"departments.json").read_text())
 DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 def sched_text(d):
     if not d.get("schedule"): return "on demand"
     return " · ".join(f"{s['label']} {'/'.join(DAYS[x] for x in s['days']) if len(s['days'])<5 else 'Mon–Fri'} {s['hour']:02d}:{s['minute']:02d}" for s in d["schedule"])
 for d in MAN["departments"]:
-    add(d["id"],d["name"],"Department",d["id"],12,f"{d['folder']}/ · {sched_text(d)}")
+    add(d["id"],d["name"],"Department",d["id"],16,f"{d['folder']}/ · {sched_text(d)}")
     link("orbit",d["id"],"owns")
     add(f"bot:{d['id']}",f"{d['name']} bot","Bot",d["id"],7,f"{d['engine']} · {sched_text(d)}"); link(d["id"],f"bot:{d['id']}","runs")
 def files(root,dept,prefix):
@@ -297,25 +297,41 @@ function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.
 let g3,g2;const el=document.getElementById('g');let MX=0,MY=0;addEventListener('mousemove',e=>{MX=e.clientX;MY=e.clientY});
 function nodeSize(n){return Math.max(2,n.size*(0.9+Math.min(deg[n.id]||0,12)/12))}
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
-function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(COL[n.type]);const grp=new THREE.Group();
- const seg=n.type==='Agent'?12:24;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:(n.type==='HQ'?.6:n.type==='Department'?.45:.3),shininess:60,specular:0x334455});
- grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
+let SHELLS=[];
+function nodeObj(n){const big=(n.type==='HQ'||n.type==='Department');const mid=(n.type==='Team'||n.type==='Bot');
+ const r=nodeSize(n)*(n.type==='Agent'?0.55:big?1.0:0.8);const col=new THREE.Color(COL[n.type]);const grp=new THREE.Group();
  const live=n.type==='Agent'&&n.stats?(n.stats.calls_7d>0?TH.active:TH.idle):null;
- const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:live?new THREE.Color(live):(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:Math.min(.6,(n.type==='HQ'?.7:n.type==='Department'?.55:n.type==='Team'?.45:n.type==='Agent'?(n.stats?.4:.18):.3)*(TH.glow||1)),depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?5:n.type==='Department'?4:n.type==='Team'?3.2:2.6)*(.6+(TH.glow||1)*.5);glow.scale.set(gs,gs,1);grp.add(glow);
- if(labels&&!(n.type==='Agent'&&!G.meta.private&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Team'?4.2:n.type==='Agent'?2.6:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor=themeKey==='paper'?'rgba(255,255,255,.7)':'rgba(8,6,16,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
+ if(big||mid){
+  // lit inner core: low emissive so the lights model its roundness, strong specular for a highlight
+  const core=new THREE.Mesh(new THREE.SphereGeometry(r*(big?.58:.66),40,40),new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:.12,shininess:110,specular:0xffffff}));grp.add(core);
+  // translucent glass shell
+  const glass=new THREE.Mesh(new THREE.SphereGeometry(r,40,40),new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:big?.16:.12,shininess:140,specular:0xffffff,depthWrite:false}));grp.add(glass);
+  // soft rim: back faces only, reads as a fresnel edge
+  const rim=new THREE.Mesh(new THREE.SphereGeometry(r*1.04,32,32),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.14,side:THREE.BackSide,depthWrite:false,blending:THREE.AdditiveBlending}));grp.add(rim);
+  if(big){ // fine geodesic cage that turns slowly
+   const cage=new THREE.Mesh(new THREE.IcosahedronGeometry(r*1.0,n.type==='HQ'?2:1),new THREE.MeshBasicMaterial({color:n.type==='HQ'?new THREE.Color(TH.accent):col,wireframe:true,transparent:true,opacity:.42}));
+   cage.userData.spin=(n.type==='HQ'?1:-1)*(0.0016+Math.random()*0.0008);grp.add(cage);SHELLS.push(cage);
+   const inner=new THREE.Mesh(new THREE.IcosahedronGeometry(r*.78,0),new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:.18}));inner.userData.spin=-cage.userData.spin*1.6;grp.add(inner);SHELLS.push(inner)}
+ }else{
+  const seg=n.type==='Agent'?16:24;
+  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:.14,shininess:80,specular:0xbfc8ff})));
+  if(live){const g=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:new THREE.Color(live),transparent:true,opacity:.34,depthWrite:false,blending:THREE.AdditiveBlending}));g.scale.set(r*3,r*3,1);grp.add(g)}
+ }
+ if(n.type==='Bot'&&n.stateColor){const g=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:new THREE.Color(n.stateColor),transparent:true,opacity:.4,depthWrite:false,blending:THREE.AdditiveBlending}));g.scale.set(r*3.2,r*3.2,1);grp.add(g)}
+ if(labels&&!(n.type==='Agent'&&!G.meta.private&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Team'?4.2:n.type==='Agent'?2.6:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor=themeKey==='paper'?'rgba(255,255,255,.7)':'rgba(8,6,16,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.35+2.5;grp.add(t)}
  return grp}
 function addStars(scene){if(!TH.stars.length)return;const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const pal=TH.stars.length?TH.stars:['#000000'];const c=new THREE.Color(pal[Math.floor(Math.random()*pal.length)]);colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
-function build3(){el.innerHTML='';g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
+function build3(){el.innerHTML='';SHELLS=[];g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
  .linkCurvature(l=>l.rel.startsWith('fn:')?.35:.18).linkColor(LK).linkWidth(l=>l.rel.startsWith('fn:')?2.2:l.rel==='reports'?2.6:l.rel==='owns'?1.4:l.rel==='runs'?1:.45).linkOpacity(.6)
  .linkDirectionalParticles(l=>l.rel.startsWith('fn:')?5:l.rel==='reports'?6:l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(l=>l.rel.startsWith('fn:')||l.rel==='reports'?3:1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(PK)
  .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#C4B5FD">${l.rel.replace('fn:','hands over: ')}</b> ${(l.target.label||l.target)}</span>`)
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n)showTip(n,MX,MY);else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
- const scene=g3.scene();scene.add(new THREE.AmbientLight(0x8899aa,.9));const key=new THREE.DirectionalLight(0xffffff,1.1);key.position.set(200,300,250);scene.add(key);const rim=new THREE.PointLight(0x39C9B6,.9,900);rim.position.set(-250,-120,-200);scene.add(rim);addStars(scene);
+ const scene=g3.scene();scene.add(new THREE.AmbientLight(0xffffff,.42));const key=new THREE.DirectionalLight(0xffffff,1.5);key.position.set(260,340,420);scene.add(key);const fill=new THREE.PointLight(new THREE.Color(TH.accent2),1.1,1400);fill.position.set(-380,-160,-260);scene.add(fill);const cam=g3.camera();const head=new THREE.PointLight(0xffffff,.55,0);cam.add(head);scene.add(cam);addStars(scene);
  g3.d3Force('charge').strength(-95);g3.d3Force('center',null);g3.d3Force('link').distance(l=>l.rel==='member'?18:l.rel==='owns'?75:l.rel==='loads'?42:32);
  const ctl=g3.controls();ctl.autoRotate=false;ctl.enableDamping=true;
  const SPEED=(2*Math.PI)/(360*60); // one turn every ~6 minutes at 60fps
- cancelAnimationFrame(window.__orb);const spin=()=>{window.__orb=requestAnimationFrame(spin);if(!rotating||mode!=='3d')return;const grp=g3.scene().children.find(o=>o.type==='Group'||o.isGroup);if(grp)grp.rotation.z+=SPEED};spin();
+ cancelAnimationFrame(window.__orb);const spin=()=>{window.__orb=requestAnimationFrame(spin);if(mode==='3d')SHELLS.forEach(c=>{c.rotation.y+=c.userData.spin;c.rotation.x+=c.userData.spin*.6});if(!rotating||mode!=='3d')return;const grp=g3.scene().children.find(o=>o.type==='Group'||o.isGroup);if(grp)grp.rotation.z+=SPEED};spin();
  setTimeout(()=>{g3.zoomToFit(700,70);setTimeout(()=>g3.cameraPosition(undefined,{x:0,y:0,z:0},600),750)},900)}
 function build2(){el.innerHTML='';g2=ForceGraph()(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(LK).linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(PK)
  .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels)return;if(n.type==='Agent'&&!G.meta.private&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
