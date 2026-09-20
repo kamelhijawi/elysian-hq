@@ -21,10 +21,10 @@
   "last_ok": "2026-09-20 08:43"
  },
  "moonshelter": {
-  "state": "running",
-  "note": "do/digest.md",
+  "state": "ok",
+  "note": "digest 2026-09-20",
   "started": "2026-09-20 09:30",
-  "finished": "2026-09-18 07:31",
-  "last_ok": "2026-09-18 07:31"
+  "finished": "2026-09-20 09:32",
+  "last_ok": "2026-09-20 09:32"
  }
 }
