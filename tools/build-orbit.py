@@ -176,7 +176,7 @@ counts={}
 for n in nodes.values(): counts[n["type"]]=counts.get(n["type"],0)+1
 J=json.dumps(PUB)
 J_PRIVATE=json.dumps(G)
-page=r"""<title>Moon Shelter</title>
+page=r"""<meta charset="utf-8"><title>Moon Shelter</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--panel:rgba(12,18,28,.85);--bg:#06090F;--ink:#EAF0F4;--ink2:#93A4B3;--dim:#56697A;--line:#1C2836;--teal:#7DD3FC;--gold:#C4B5FD}
