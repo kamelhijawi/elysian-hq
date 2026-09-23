@@ -86,7 +86,8 @@
     "Grep",
     "mcp__claude_ai_Zapier__inspect_zapier_actions",
     "mcp__claude_ai_Zapier__execute_zapier_read_action",
-    "mcp__claude_ai_Zapier__list_zapier_connections"
+    "mcp__claude_ai_Zapier__list_zapier_connections",
+    "mcp__claude_ai_Zapier__execute_zapier_write_action"
    ],
    "schedule": [
     {
@@ -123,6 +124,21 @@
      "minute": 20,
      "recipe": "do/weekly-meeting.md",
      "label": "Monday brief"
+    },
+    {
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "hour": 7,
+     "minute": 5,
+     "recipe": "do/daily-leads-email.md",
+     "label": "leads email"
     }
    ]
   },
