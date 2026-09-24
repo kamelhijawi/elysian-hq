@@ -1,10 +1,10 @@
 {
  "sales": {
   "state": "ok",
-  "note": "daily-pulse 2026-09-24",
+  "note": "daily-leads-email 2026-09-24",
   "started": "2026-09-24 07:05",
-  "finished": "2026-09-24 07:06",
-  "last_ok": "2026-09-24 07:06"
+  "finished": "2026-09-24 07:07",
+  "last_ok": "2026-09-24 07:07"
  },
  "crm": {
   "state": "ok",
