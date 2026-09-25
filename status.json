@@ -7,9 +7,9 @@
   "last_ok": "2026-09-24 07:19"
  },
  "crm": {
-  "state": "ok",
-  "note": "hygiene-sweep 2026-09-24",
-  "started": "2026-09-24 06:30",
+  "state": "running",
+  "note": "do/hygiene-sweep.md",
+  "started": "2026-09-25 06:30",
   "finished": "2026-09-24 06:41",
   "last_ok": "2026-09-24 06:41"
  },
