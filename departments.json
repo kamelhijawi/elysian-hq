@@ -188,6 +188,24 @@
      "minute": 45,
      "recipe": "do/reporter.md",
      "label": "channel report"
+    },
+    {
+     "days": [
+      0
+     ],
+     "hour": 9,
+     "minute": 20,
+     "recipe": "do/production-director.md",
+     "label": "production orders"
+    },
+    {
+     "days": [
+      3
+     ],
+     "hour": 7,
+     "minute": 0,
+     "recipe": "do/production-director.md",
+     "label": "production refresh"
     }
    ]
   }

@@ -336,7 +336,7 @@ addEventListener('resize',()=>{const g=mode==='3d'?g3:g2;if(g){g.width(innerWidt
 </script>
 """
 (HQ/"private").mkdir(exist_ok=True)
-(HQ/"private/index.html").write_text(page.replace("const G=__DATA__;","const G=__DATA__;G.meta.private=true;").replace("__DATA__",J_PRIVATE).replace("<span>live</span>","<span>private</span>"),encoding="utf-8")
+(HQ/"private/index.html").write_text(page.replace("const G=__DATA__;","const G=__DATA__;G.meta.private=true;").replace("__DATA__",J_PRIVATE).replace("<span>live</span>","<span>private</span> · <a href=\"http://127.0.0.1:8770\" style=\"color:inherit\">reports</a>"),encoding="utf-8")
 page=page.replace("__DATA__",J)
 (HQ/"index.html").write_text(page,encoding="utf-8")
 print(json.dumps({"nodes":len(nodes),"links":len(links),"types":counts}))
