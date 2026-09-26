@@ -259,5 +259,17 @@
    "name": "tracking standard",
    "what": "LeadSource naming standard, campaign tags needed to measure a plan"
   }
+ ],
+ "services": [
+  {
+   "id": "reports",
+   "label": "Moon Shelter reports page",
+   "command": [
+    "/usr/bin/env",
+    "python3",
+    "/Users/kamel/elysian/hq/tools/report-server.py"
+   ],
+   "url": "http://127.0.0.1:8770"
+  }
  ]
 }

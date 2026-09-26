@@ -19,6 +19,22 @@ for d in m["departments"]+([m["centre"]] if isinstance(m.get("centre"),dict) els
 <key>RunAtLoad</key><false/>
 </dict></plist>
 """
+# services: always-on local processes (the reports page). Started at login, restarted only if they exit with an error.
+for s in m.get("services",[]):
+    label=f"com.elysian.svc.{s['id']}"
+    args="".join(f"<string>{a}</string>" for a in s["command"])
+    want[label]=f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>{label}</string>
+<key>ProgramArguments</key><array>{args}</array>
+<key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{HOME}/.local/bin</string></dict>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+<key>StandardOutPath</key><string>{HOME}/Library/Logs/elysian-svc-{s['id']}.log</string>
+<key>StandardErrorPath</key><string>{HOME}/Library/Logs/elysian-svc-{s['id']}.log</string>
+</dict></plist>
+"""
 have={p.stem:p for p in LA.glob("com.elysian.*.plist")}
 for label,p in have.items():
     if label not in want:
