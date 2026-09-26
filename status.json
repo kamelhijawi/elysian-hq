@@ -42,8 +42,10 @@
   "last_ok": "2026-09-26 13:25"
  },
  "marketing-report": {
-  "state": "running",
-  "note": "do/production-director.md",
-  "started": "2026-09-26 13:21"
+  "state": "ok",
+  "note": "production-director 2026-09-26 13:21",
+  "started": "2026-09-26 13:21",
+  "finished": "2026-09-26 13:31",
+  "last_ok": "2026-09-26 13:31"
  }
 }
