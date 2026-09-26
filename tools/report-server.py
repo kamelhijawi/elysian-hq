@@ -123,5 +123,10 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self.send("not found","text/plain",404)
 if __name__=="__main__":
     http.server.ThreadingHTTPServer.allow_reuse_address=True
+    try:
+        srv=http.server.ThreadingHTTPServer(("127.0.0.1",PORT),H)
+    except OSError as e:
+        if e.errno==48: print("Moon Shelter reports is already running: open http://127.0.0.1:%d"%PORT); sys.exit(0)
+        raise
     print("Moon Shelter reports on http://127.0.0.1:%d"%PORT); sys.stdout.flush()
-    http.server.ThreadingHTTPServer(("127.0.0.1",PORT),H).serve_forever()
+    srv.serve_forever()
