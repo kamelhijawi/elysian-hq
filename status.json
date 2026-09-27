@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "daily-leads-email 2026-09-26",
-  "started": "2026-09-26 07:05",
+  "state": "running",
+  "note": "do/daily-leads-email.md",
+  "started": "2026-09-27 07:05",
   "finished": "2026-09-26 07:09",
   "last_ok": "2026-09-26 07:09"
  },
