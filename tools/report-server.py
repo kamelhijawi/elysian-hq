@@ -71,8 +71,25 @@ table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:14px}th,td
 .blank{background:#f0c14b33;color:var(--gold);padding:0 4px;border-radius:4px}pre{background:var(--bg);padding:12px;border-radius:8px;overflow:auto;font-size:13px}code{font-size:13px}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
+PRINT="""
+@page{size:A4;margin:14mm 14mm 16mm}
+@media print{:root{--bg:#fff;--panel:#fff;--ink:#141414;--mute:#555;--line:#d9d9d9;--gold:#8a6100}
+ body{background:#fff;font-size:11.5pt}header,.toolbar{display:none}main{padding:0;max-width:none}
+ article{border:0;padding:0;max-width:none;border-radius:0}article h2{page-break-after:avoid}table{page-break-inside:auto}tr{page-break-inside:avoid}pre{white-space:pre-wrap}}
+.toolbar{max-width:900px;margin:0 auto 12px;display:flex;gap:10px;align-items:center}.toolbar a.btn{background:var(--gold);color:#17141f;border-radius:8px;padding:8px 12px;font-weight:600;text-decoration:none;font-size:14px}.toolbar span{color:var(--mute);font-size:13px}
+"""
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+PROFILE=pathlib.Path.home()/"Library/Caches/elysian-reports-chrome"
+def make_pdf(job,f):
+    """Print the rendered report to PDF with Chrome headless; the file lands next to the .md (same name, .pdf)."""
+    src=JOBS[job]["dir"]/f; out=src.with_suffix(".pdf")
+    url=f"http://127.0.0.1:{PORT}/report?job={job}&f={urllib.parse.quote(f)}&print=1"
+    PROFILE.mkdir(parents=True,exist_ok=True)
+    subprocess.run([CHROME,"--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check",f"--user-data-dir={PROFILE}",
+                    "--no-pdf-header-footer",f"--print-to-pdf={out}",url],timeout=120,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    return out if out.exists() else None
 def page(body,title="Moon Shelter reports"):
-    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}</style></head>
+    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}{PRINT}</style></head>
 <body><header><span class="tag">Moon Shelter</span><h1>Reports</h1><a href="/">all reports</a></header><main>{body}</main></body></html>"""
 def state_of(job):
     b=status().get(JOBS[job]["bot"],{}); running=RUNNING.get(job) and RUNNING[job].poll() is None
@@ -84,7 +101,7 @@ def home():
     cards=[]
     for k,j in JOBS.items():
         cls,txt=state_of(k); files=latest(j["dir"],j.get("pattern","*.md"))[:6]
-        fl="".join(f'<li><a href="/report?job={k}&f={urllib.parse.quote(p.name)}">{html.escape(p.name)}</a><span>{datetime.datetime.fromtimestamp(p.stat().st_mtime):%d %b %H:%M}</span></li>' for p in files)
+        fl="".join(f'<li><a href="/report?job={k}&f={urllib.parse.quote(p.name)}">{html.escape(p.name)}</a><span>{datetime.datetime.fromtimestamp(p.stat().st_mtime):%d %b %H:%M}</span> <a href="/pdf?job={k}&f={urllib.parse.quote(p.name)}" style="color:var(--gold);font-size:12px">PDF</a></li>' for p in files)
         cards.append(f'''<div class="card" data-job="{k}"><h2>{j["label"]}</h2><div class="what">{j["what"]}</div>
 <button onclick="run('{k}')" {"disabled" if cls=="run" else ""}>Generate {j["label"].lower()}</button><div class="state {cls}">{html.escape(txt)}</div><ul class="files">{fl or "<li><span>no reports yet</span></li>"}</ul></div>''')
     return page(f'''<p style="color:var(--mute);margin-top:0">Press a button. The department bot runs on Claude headless, reads Salesforce read-only, writes a dated file, and it appears here. Nothing is sent or changed anywhere.</p>
@@ -109,7 +126,15 @@ class H(http.server.SimpleHTTPRequestHandler):
             if job not in JOBS or "/" in f or ".." in f: return self.send("bad request","text/plain",400)
             p=JOBS[job]["dir"]/f
             if not p.exists(): return self.send("not found","text/plain",404)
-            return self.send(page(f"<article>{md2html(p.read_text(errors='ignore'))}</article>",f"{JOBS[job]['label']} · {f}"))
+            bar="" if q.get("print") else f'<div class="toolbar"><a class="btn" href="/pdf?job={job}&f={urllib.parse.quote(f)}">Download PDF</a><span>A4, saved next to the report as {html.escape(pathlib.Path(f).stem)}.pdf</span></div>'
+            return self.send(page(f"{bar}<article>{md2html(p.read_text(errors='ignore'))}</article>",f"{JOBS[job]['label']} · {f}"))
+        if u.path=="/pdf":
+            job=q.get("job",[""])[0]; f=q.get("f",[""])[0]
+            if job not in JOBS or "/" in f or ".." in f or not (JOBS[job]["dir"]/f).exists(): return self.send("bad request","text/plain",400)
+            out=make_pdf(job,f)
+            if not out: return self.send("PDF failed: Chrome headless did not produce a file","text/plain",500)
+            b=out.read_bytes(); self.send_response(200); self.send_header("Content-Type","application/pdf")
+            self.send_header("Content-Disposition",f'inline; filename="{out.name}"'); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b); return
         return self.send("not found","text/plain",404)
     def do_POST(self):
         if self.path.startswith("/run/"):
