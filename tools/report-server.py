@@ -79,14 +79,16 @@ PRINT="""
 .toolbar{max-width:900px;margin:0 auto 12px;display:flex;gap:10px;align-items:center}.toolbar a.btn{background:var(--gold);color:#17141f;border-radius:8px;padding:8px 12px;font-weight:600;text-decoration:none;font-size:14px}.toolbar span{color:var(--mute);font-size:13px}
 """
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-PROFILE=pathlib.Path.home()/"Library/Caches/elysian-reports-chrome"
 def make_pdf(job,f):
-    """Print the rendered report to PDF with Chrome headless; the file lands next to the .md (same name, .pdf)."""
+    """Print the rendered report to PDF with Chrome headless; the file lands next to the .md (same name, .pdf).
+    No --user-data-dir: with one, Chrome 154 writes the PDF but never exits. A PDF newer than the .md is reused."""
     src=JOBS[job]["dir"]/f; out=src.with_suffix(".pdf")
+    if out.exists() and out.stat().st_mtime>=src.stat().st_mtime: return out
     url=f"http://127.0.0.1:{PORT}/report?job={job}&f={urllib.parse.quote(f)}&print=1"
-    PROFILE.mkdir(parents=True,exist_ok=True)
-    subprocess.run([CHROME,"--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check",f"--user-data-dir={PROFILE}",
-                    "--no-pdf-header-footer",f"--print-to-pdf={out}",url],timeout=120,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+        subprocess.run([CHROME,"--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check","--no-pdf-header-footer",
+                        f"--print-to-pdf={out}",url],timeout=60,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired: pass
     return out if out.exists() else None
 def page(body,title="Moon Shelter reports"):
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}{PRINT}</style></head>
