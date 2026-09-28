@@ -79,10 +79,11 @@ PRINT="""
 .toolbar{max-width:900px;margin:0 auto 12px;display:flex;gap:10px;align-items:center}.toolbar a.btn{background:var(--gold);color:#17141f;border-radius:8px;padding:8px 12px;font-weight:600;text-decoration:none;font-size:14px}.toolbar span{color:var(--mute);font-size:13px}
 """
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+PDFDIR=E/"moonshelter/live/pdf"   # Kamel's desk; never inside a department folder (brain/ is written by sales only)
 def make_pdf(job,f):
     """Print the rendered report to PDF with Chrome headless; the file lands next to the .md (same name, .pdf).
     No --user-data-dir: with one, Chrome 154 writes the PDF but never exits. A PDF newer than the .md is reused."""
-    src=JOBS[job]["dir"]/f; out=src.with_suffix(".pdf")
+    src=JOBS[job]["dir"]/f; PDFDIR.mkdir(parents=True,exist_ok=True); out=PDFDIR/f"{job}-{src.stem}.pdf"
     if out.exists() and out.stat().st_mtime>=src.stat().st_mtime: return out
     url=f"http://127.0.0.1:{PORT}/report?job={job}&f={urllib.parse.quote(f)}&print=1"
     try:
@@ -128,7 +129,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             if job not in JOBS or "/" in f or ".." in f: return self.send("bad request","text/plain",400)
             p=JOBS[job]["dir"]/f
             if not p.exists(): return self.send("not found","text/plain",404)
-            bar="" if q.get("print") else f'<div class="toolbar"><a class="btn" href="/pdf?job={job}&f={urllib.parse.quote(f)}">Download PDF</a><span>A4, saved next to the report as {html.escape(pathlib.Path(f).stem)}.pdf</span></div>'
+            bar="" if q.get("print") else f'<div class="toolbar"><a class="btn" href="/pdf?job={job}&f={urllib.parse.quote(f)}">Download PDF</a><span>A4 · saved as moonshelter/live/pdf/{job}-{html.escape(pathlib.Path(f).stem)}.pdf</span></div>'
             return self.send(page(f"{bar}<article>{md2html(p.read_text(errors='ignore'))}</article>",f"{JOBS[job]['label']} · {f}"))
         if u.path=="/pdf":
             job=q.get("job",[""])[0]; f=q.get("f",[""])[0]
