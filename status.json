@@ -28,9 +28,9 @@
   "last_ok": "2026-09-29 07:33"
  },
  "crm-report": {
-  "state": "ok",
-  "note": "report-page 2026-09-28 07:08",
-  "started": "2026-09-28 07:08",
+  "state": "running",
+  "note": "do/report-page.md",
+  "started": "2026-09-29 10:20",
   "finished": "2026-09-28 07:10",
   "last_ok": "2026-09-28 07:10"
  },
