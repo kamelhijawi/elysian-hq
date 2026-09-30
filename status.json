@@ -14,9 +14,9 @@
   "last_ok": "2026-09-30 06:32"
  },
  "marketing": {
-  "state": "ok",
-  "note": "reporter 2026-09-28",
-  "started": "2026-09-28 06:45",
+  "state": "running",
+  "note": "do/production-director.md",
+  "started": "2026-09-30 07:00",
   "finished": "2026-09-28 06:48",
   "last_ok": "2026-09-28 06:48"
  },
