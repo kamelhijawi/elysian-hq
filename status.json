@@ -1,10 +1,10 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/agent-stats.md",
+  "state": "ok",
+  "note": "agent-stats 2026-09-30",
   "started": "2026-09-30 07:11",
-  "finished": "2026-09-30 07:06",
-  "last_ok": "2026-09-30 07:06"
+  "finished": "2026-09-30 07:13",
+  "last_ok": "2026-09-30 07:13"
  },
  "crm": {
   "state": "ok",
