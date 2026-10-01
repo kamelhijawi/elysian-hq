@@ -35,11 +35,11 @@
   "last_ok": "2026-10-01 09:07"
  },
  "sales-report": {
-  "state": "running",
-  "note": "do/daily-pulse.md",
+  "state": "ok",
+  "note": "daily-pulse 2026-10-01 09:09",
   "started": "2026-10-01 09:09",
-  "finished": "2026-09-28 07:24",
-  "last_ok": "2026-09-28 07:24"
+  "finished": "2026-10-01 09:11",
+  "last_ok": "2026-10-01 09:11"
  },
  "marketing-report": {
   "state": "ok",
