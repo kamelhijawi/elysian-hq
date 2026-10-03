@@ -1,6 +1,6 @@
 #!/bin/zsh
 # run-dept.sh <dept-id> <recipe>  — runs one department recipe on Claude headless, with heartbeat.
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 HQ="/Users/kamel/elysian/hq"; DEPT="$1"; RECIPE="$2"; TODAY=$(date +%Y-%m-%d)
 read -r FOLDER TOOLS <<< "$(python3 - "$DEPT" <<'PY'
 import json,sys
