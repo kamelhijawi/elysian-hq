@@ -49,8 +49,10 @@
   "last_ok": "2026-09-26 13:31"
  },
  "marketing-publisher": {
-  "state": "running",
-  "note": "do/publisher.md",
-  "started": "2026-10-03 16:19"
+  "state": "ok",
+  "note": "publisher 2026-10-03 16:19",
+  "started": "2026-10-03 16:19",
+  "finished": "2026-10-03 16:21",
+  "last_ok": "2026-10-03 16:21"
  }
 }
