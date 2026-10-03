@@ -98,8 +98,10 @@ ideas=(M/"live/ideas.md").read_text(errors="ignore") if (M/"live/ideas.md").exis
 for l in ideas.splitlines():
     if l.startswith("2026-"):
         c=cells(l)
+        # only ideas that are moving show on the graph (Moon Shelter decision 2026-10-03); UNUSED/HOLD/DROPPED stay in the file
+        if len(c)>=7 and c[6].strip().upper() not in ("SELECTED","IN PLAN","USED"): continue
         if len(c)>=2:
-            iid=add(f"idea:{c[1]}",c[1],"Idea","marketing",3.5,(c[2] if len(c)>2 else "")[:90]); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
+            iid=add(f"idea:{c[1]}",c[1],"Idea","marketing",3.5,(c[2] if len(c)>2 else "")[:90]+(f" · {c[6].strip()}" if len(c)>=7 else "")); link("mkt:live/ideas.md",iid,"holds"); link("mkt:do/creative-director.md",iid,"wrote")
 for p in sorted((M/"live/plans").glob("*.md")):
     pid=add(f"plan:{p.stem}",p.stem,"Plan","marketing",6,"live/plans"); link("mkt:do/campaign-planner.md",pid,"wrote"); link("mkt:do/media-planner.md",pid,"wrote"); link("mkt:live/plans.md",pid,"lists")
 for root,prefix,dept in [x for x in ((B,"brain","sales"),(M,"mkt","marketing"),(HQ.parent/"crm","crm","crm"),(HQ.parent/"people","people","people"),(HQ.parent/"advisory","advisory","advisory")) if x[2] in {d["id"] for d in MAN["departments"]}]:
