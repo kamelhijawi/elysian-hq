@@ -47,5 +47,10 @@
   "started": "2026-09-26 13:21",
   "finished": "2026-09-26 13:31",
   "last_ok": "2026-09-26 13:31"
+ },
+ "marketing-publisher": {
+  "state": "running",
+  "note": "do/publisher.md",
+  "started": "2026-10-03 16:19"
  }
 }
