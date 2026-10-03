@@ -28,11 +28,11 @@
   "last_ok": "2026-10-02 07:33"
  },
  "crm-report": {
-  "state": "running",
-  "note": "do/report-page.md",
+  "state": "ok",
+  "note": "report-page 2026-10-03 16:03",
   "started": "2026-10-03 16:03",
-  "finished": "2026-10-01 09:07",
-  "last_ok": "2026-10-01 09:07"
+  "finished": "2026-10-03 16:05",
+  "last_ok": "2026-10-03 16:05"
  },
  "sales-report": {
   "state": "ok",
