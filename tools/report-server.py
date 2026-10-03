@@ -147,6 +147,8 @@ def queue_html():
         if r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and open LinkedIn</button>'%pid
         else: btn='<button onclick="act(\'%s\',\'approve\')">Open LinkedIn again</button> <button onclick="posted(\'%s\')">Mark posted</button>'%(pid,pid)
         body=html.escape(txt) if txt else "(post text missing: "+html.escape(r["file"])+")"
+        car=POSTS/f"{pid}-carousel.pdf"
+        if car.exists(): body+='\n\n[ carousel: %s, attach it as a document when you post → <a href="/post-file?f=%s-carousel.pdf" style="color:var(--gold)">open PDF</a> ]'%(car.name,pid)
         out.append('<div class="card post" data-pid="%s"><h2>%s · %s</h2><div class="what">%s · %s%s</div><pre class="posttext">%s</pre><div class="row">%s <button class="ghost" onclick="act(\'%s\',\'reject\')">Reject</button> <span class="state">%d characters</span></div></div>'%(pid,pid,html.escape(r["idea"]),html.escape(r["channel"]),r["status"],html.escape(appr),body,btn,pid,len(txt)))
     if not live: out.append('<p style="color:var(--mute)">Nothing waiting for you.</p>')
     if done: out.append('<p style="color:var(--mute);font-size:13px">Recent: '+" · ".join(html.escape(f'{r["id"]} {r["status"].lower()} {r["posted"] or ""}') for r in done)+'</p>')
@@ -187,6 +189,10 @@ class H(http.server.SimpleHTTPRequestHandler):
             if not p.exists(): return self.send("not found","text/plain",404)
             bar="" if q.get("print") else f'<div class="toolbar"><a class="btn" href="/pdf?job={job}&f={urllib.parse.quote(f)}">Download PDF</a><span>A4 · saved as moonshelter/live/pdf/{job}-{html.escape(pathlib.Path(f).stem)}.pdf</span></div>'
             return self.send(page(f"{bar}<article>{md2html(p.read_text(errors='ignore'))}</article>",f"{JOBS[job]['label']} · {f}"))
+        if u.path=="/post-file":
+            f=q.get("f",[""])[0]
+            if not re.match(r"^P-\d+-(carousel\.pdf|slide-\d+\.png)$",f) or not (POSTS/f).exists(): return self.send("not found","text/plain",404)
+            b=(POSTS/f).read_bytes(); self.send_response(200); self.send_header("Content-Type","application/pdf" if f.endswith(".pdf") else "image/png"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b); return
         if u.path=="/pdf":
             job=q.get("job",[""])[0]; f=q.get("f",[""])[0]
             if job not in JOBS or "/" in f or ".." in f or not (JOBS[job]["dir"]/f).exists(): return self.send("bad request","text/plain",400)
