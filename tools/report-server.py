@@ -8,6 +8,7 @@ JOBS={
  "crm":  {"dept":"crm","recipe":"do/report-page.md","bot":"crm-report","dir":E/"crm/live/reports","label":"CRM report","what":"Leads 24h and 7d by source and segment, pool, opportunities, calls, fixes for Jilan"},
  "sales":{"dept":"sales","recipe":"do/daily-pulse.md","bot":"sales-report","dir":E/"brain/live","pattern":"pulse.md","label":"Sales pulse","what":"Yesterday's leads, touches, opps, stage moves (writes brain/live/pulse.md)"},
  "marketing":{"dept":"marketing","recipe":"do/production-director.md","bot":"marketing-report","dir":E/"marketing-brain/live/production","label":"Production orders","what":"Videographer work orders and the social media buyer plan"},
+ "publisher":{"dept":"marketing","recipe":"do/publisher.md","bot":"marketing-publisher","dir":E/"marketing-brain/live/posts","pattern":"P-*.md","label":"LinkedIn posts","what":"Drafts finished LinkedIn posts from selected ideas into the publish queue below"},
  "voice":{"dept":"voice","recipe":"do/call-queue.md","bot":"voice-report","dir":E/"voice/live/calls","label":"Call queue","what":"Today's call list and briefs (shadow mode until the voice key and standing yes exist)"},
 }
 # only departments registered in departments.json get a button (run-ondemand.sh would otherwise fall back to the centre folder)
@@ -69,6 +70,7 @@ article{background:var(--panel);border:1px solid var(--line);border-radius:12px;
 article h1{font-size:22px;margin-top:0}article h2{font-size:16px;margin:22px 0 8px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase}
 table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase}
 .blank{background:#f0c14b33;color:var(--gold);padding:0 4px;border-radius:4px}pre{background:var(--bg);padding:12px;border-radius:8px;overflow:auto;font-size:13px}code{font-size:13px}
+.post pre.posttext{white-space:pre-wrap;font:14px/1.5 -apple-system,"IBM Plex Sans",Helvetica,Arial,sans-serif;background:var(--bg);padding:12px;border-radius:8px;max-height:320px;overflow:auto}.post .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line)}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -100,6 +102,55 @@ def state_of(job):
     if not b: return "","never run"
     if b.get("state")=="failed": return "bad","failed "+b.get("finished","")+" · "+b.get("note","")
     return "ok","last run "+b.get("finished","")
+QUEUE=E/"marketing-brain/live/publish-queue.md"; POSTS=E/"marketing-brain/live/posts"
+QCOLS=["date","id","idea","channel","status","file","approved","posted","url"]
+def read_queue():
+    rows=[]
+    if not QUEUE.exists(): return [],[]
+    lines=QUEUE.read_text().splitlines()
+    for i,l in enumerate(lines):
+        if l.startswith("|") and not l.startswith("| date") and not re.match(r"^\|\s*-",l):
+            c=[x.strip() for x in l.strip().strip("|").split("|")]
+            if len(c)>=5 and re.match(r"^P-\d+$",c[1]): rows.append((i,dict(zip(QCOLS,c+[""]*(len(QCOLS)-len(c))))))
+    return lines,rows
+def post_text(pid):
+    f=POSTS/f"{pid}.md"
+    if not f.exists(): return ""
+    t=f.read_text(errors="ignore"); m=re.search(r"^## Post\s*\n(.*?)(?=^## |\Z)",t,re.S|re.M)
+    return (m.group(1) if m else "").strip()
+def set_status(pid,status,url=""):
+    lines,rows=read_queue(); now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    for i,r in rows:
+        if r["id"]==pid:
+            r["status"]=status
+            if status=="APPROVED": r["approved"]=now
+            if status=="POSTED": r["posted"]=now; r["url"]=url or r.get("url","")
+            lines[i]="| "+" | ".join(r.get(k,"") for k in QCOLS)+" |"; QUEUE.write_text("\n".join(lines)+"\n")
+            f=POSTS/f"{pid}.md"
+            if f.exists():
+                t=f.read_text(errors="ignore"); t=re.sub(r"^- status:.*$",f"- status: {status}",t,count=1,flags=re.M)
+                if status=="APPROVED": t=re.sub(r"^- approved:.*$",f"- approved: {now}",t,count=1,flags=re.M)
+                if status=="POSTED":
+                    t=re.sub(r"^- posted:.*$",f"- posted: {now}",t,count=1,flags=re.M)
+                    if url: t=re.sub(r"^- url:.*$",f"- url: {url}",t,count=1,flags=re.M)
+                f.write_text(t)
+            subprocess.Popen(["/bin/zsh","-c",f"git add -A && git commit -q -m 'publisher: {pid} {status} by Kamel {now}'"],cwd=E/"marketing-brain",stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            return True
+    return False
+def queue_html():
+    _,rows=read_queue(); live=[r for _,r in rows if r["status"] in ("READY","APPROVED")]
+    done=[r for _,r in rows if r["status"] in ("POSTED","REJECTED")][-5:]
+    if not rows: return '<p style="color:var(--mute)">No posts drafted yet. Press "Generate linkedin posts" above.</p>'
+    out=[]
+    for r in live:
+        txt=post_text(r["id"]); pid=r["id"]; appr=(" · approved "+r["approved"]) if r["approved"] else ""
+        if r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and open LinkedIn</button>'%pid
+        else: btn='<button onclick="act(\'%s\',\'approve\')">Open LinkedIn again</button> <button onclick="posted(\'%s\')">Mark posted</button>'%(pid,pid)
+        body=html.escape(txt) if txt else "(post text missing: "+html.escape(r["file"])+")"
+        out.append('<div class="card post" data-pid="%s"><h2>%s · %s</h2><div class="what">%s · %s%s</div><pre class="posttext">%s</pre><div class="row">%s <button class="ghost" onclick="act(\'%s\',\'reject\')">Reject</button> <span class="state">%d characters</span></div></div>'%(pid,pid,html.escape(r["idea"]),html.escape(r["channel"]),r["status"],html.escape(appr),body,btn,pid,len(txt)))
+    if not live: out.append('<p style="color:var(--mute)">Nothing waiting for you.</p>')
+    if done: out.append('<p style="color:var(--mute);font-size:13px">Recent: '+" · ".join(html.escape(f'{r["id"]} {r["status"].lower()} {r["posted"] or ""}') for r in done)+'</p>')
+    return "".join(out)
 def home():
     cards=[]
     for k,j in JOBS.items():
@@ -109,7 +160,12 @@ def home():
 <button onclick="run('{k}')" {"disabled" if cls=="run" else ""}>Generate {j["label"].lower()}</button><div class="state {cls}">{html.escape(txt)}</div><ul class="files">{fl or "<li><span>no reports yet</span></li>"}</ul></div>''')
     return page(f'''<p style="color:var(--mute);margin-top:0">Press a button. The department bot runs on Claude headless, reads Salesforce read-only, writes a dated file, and it appears here. Nothing is sent or changed anywhere.</p>
 <div class="grid">{"".join(cards)}</div>
+<h2 style="margin:28px 0 6px;font-size:17px">Publish queue · LinkedIn</h2>
+<p style="color:var(--mute);margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in Chrome with the text filled in; you press Post there, then mark it posted here.</p>
+<div class="grid">{queue_html()}</div>
 <script>
+async function act(pid,what){{if(what==='reject'&&!confirm('Reject '+pid+'?'))return;const r=await fetch('/queue/'+what+'/'+pid,{{method:'POST'}});const j=await r.json();if(!j.ok)alert(j.why||'failed');location.reload()}}
+async function posted(pid){{const u=prompt('Posted. Paste the post URL if you have it (optional):','')||'';await fetch('/queue/posted/'+pid,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{url:u}})}});location.reload()}}
 async function run(k){{const c=document.querySelector(`[data-job="${{k}}"]`);const b=c.querySelector('button');b.disabled=true;c.querySelector('.state').textContent='starting…';
 await fetch('/run/'+k,{{method:'POST'}});poll()}}
 async function poll(){{const s=await (await fetch('/status')).json();let any=false;for(const k in s){{const c=document.querySelector(`[data-job="${{k}}"]`);if(!c)continue;const st=c.querySelector('.state');st.className='state '+s[k][0];st.textContent=s[k][1];c.querySelector('button').disabled=s[k][0]==='run';if(s[k][0]==='run')any=true}}
@@ -140,6 +196,19 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Disposition",f'inline; filename="{out.name}"'); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b); return
         return self.send("not found","text/plain",404)
     def do_POST(self):
+        if self.path.startswith("/queue/"):
+            parts=self.path.split("/"); what=parts[2] if len(parts)>2 else ""; pid=parts[3] if len(parts)>3 else ""
+            if not re.match(r"^P-\d+$",pid) or what not in ("approve","posted","reject"): return self.send(json.dumps({"ok":False,"why":"bad request"}),"application/json",400)
+            n=int(self.headers.get("Content-Length") or 0); body=json.loads(self.rfile.read(n).decode() or "{}") if n else {}
+            if what=="approve":
+                txt=post_text(pid)
+                if not txt: return self.send(json.dumps({"ok":False,"why":"post text missing"}),"application/json")
+                ok=set_status(pid,"APPROVED")
+                # Kamel's explicit yes: open HIS LinkedIn composer with the text; he presses Post himself. This server never posts.
+                subprocess.Popen(["open","-a","Google Chrome","https://www.linkedin.com/feed/?shareActive=true&text="+urllib.parse.quote(txt)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            elif what=="posted": ok=set_status(pid,"POSTED",str(body.get("url",""))[:300])
+            else: ok=set_status(pid,"REJECTED")
+            return self.send(json.dumps({"ok":ok,"why":"" if ok else "id not in queue"}),"application/json")
         if self.path.startswith("/run/"):
             k=self.path[5:]
             if k not in JOBS: return self.send("unknown job","text/plain",404)

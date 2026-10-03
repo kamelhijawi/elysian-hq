@@ -206,6 +206,24 @@
      "minute": 0,
      "recipe": "do/production-director.md",
      "label": "production refresh"
+    },
+    {
+     "days": [
+      0
+     ],
+     "hour": 10,
+     "minute": 0,
+     "recipe": "do/publisher.md",
+     "label": "LinkedIn posts"
+    },
+    {
+     "days": [
+      3
+     ],
+     "hour": 7,
+     "minute": 30,
+     "recipe": "do/publisher.md",
+     "label": "posts refresh"
     }
    ]
   }
