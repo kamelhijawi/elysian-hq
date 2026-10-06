@@ -337,6 +337,8 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if not client_ok(self.client_address[0]): return self.send("forbidden","text/plain",403)
         u=urllib.parse.urlparse(self.path); q=urllib.parse.parse_qs(u.query)
+        if u.path=="/graph-status":
+            return self.send(json.dumps(status()),"application/json")
         if u.path=="/graph":
             g=HQ/"private/index.html"
             return self.send(g.read_text(errors="ignore")) if g.exists() else self.send("graph not built","text/plain",404)

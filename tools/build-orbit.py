@@ -178,7 +178,7 @@ counts={}
 for n in nodes.values(): counts[n["type"]]=counts.get(n["type"],0)+1
 J=json.dumps(PUB)
 J_PRIVATE=json.dumps(G)
-page=r"""<meta charset="utf-8"><title>Moon Shelter</title>
+page=r"""<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Moon Shelter</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--panel:rgba(12,18,28,.85);--bg:#06090F;--ink:#EAF0F4;--ink2:#93A4B3;--dim:#56697A;--line:#1C2836;--teal:#7DD3FC;--gold:#C4B5FD}
@@ -218,12 +218,16 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
 .focus .n{font:400 20px "DM Serif Display",Georgia,serif}.focus .t{color:var(--gold);font:500 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase}
 .focus ul{margin:8px 0 0;padding:0;list-style:none;max-height:40vh;overflow:auto}.focus li{padding:4px 0;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer}.focus li b{color:var(--ink2);font-weight:400;font-family:"IBM Plex Mono",monospace;font-size:11px}
 .focus .x{float:right;cursor:pointer;color:var(--ink2)}
+.search-wrap{position:relative}#results{position:absolute;top:100%;right:0;width:320px;max-height:320px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:9px;z-index:10;padding:5px}#results button{display:block;text-align:left;width:100%;background:transparent;border:0;color:var(--ink);padding:10px;cursor:pointer}#results button:hover,#results button:focus{background:var(--line)}.focus-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.focus-actions a{text-decoration:none}.focus{max-height:70vh;overflow:auto}.ctl{flex-wrap:wrap;justify-content:flex-end;max-width:760px}#freshness{margin-bottom:6px;color:var(--ink2)}@media(max-width:800px){.top{left:10px;right:10px;flex-direction:column;align-items:flex-start;gap:10px}.ctl{justify-content:flex-start}.focus{top:240px;right:10px;width:min(360px,calc(100vw - 20px));max-height:50vh}.legend{left:10px;bottom:10px;width:150px;max-height:25vh}.status{right:10px;bottom:10px;max-width:48vw;background:var(--panel);padding:6px;border-radius:8px;font-size:10px}.top{background:var(--panel);padding:8px;border-radius:10px}.legend{max-height:18vh}#results{left:0;right:auto;width:280px}}
 </style>
 <div id="g"></div>
 <div class="ui top">
   <div><div class="brand">Elysian · HQ</div><h1>Moon Shelter <span>live</span></h1><div class="sub" id="sub"></div><details style="margin-top:8px;max-width:440px"><summary style="cursor:pointer;color:var(--teal);font:500 12px IBM Plex Mono,monospace;letter-spacing:.08em;text-transform:uppercase">Department status</summary><div class="sub" id="bots" style="margin-top:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div></details></div>
   <div class="ctl">
-    <input class="q" id="q" placeholder="Search nodes… agent, developer, file, idea">
+    <div class="search-wrap"><input class="q" id="q" aria-label="Search graph" autocomplete="off" placeholder="Find a person, file, or topic…"><div id="results" aria-label="Search results" hidden></div></div>
+    <select class="btn" id="department" aria-label="Department"><option value="">All departments</option></select>
+    <button class="btn" id="efficient" aria-pressed="true">Efficiency: on</button>
+    <button class="btn" id="reset">Reset view</button>
     <div class="seg"><button id="b3" class="on">3D</button><button id="b2">2D</button></div>
     <select class="btn" id="theme" title="Colour theme"></select>
     <button class="btn" id="rot">Pause orbit</button>
@@ -231,7 +235,7 @@ input.q{width:240px;cursor:text}input.q::placeholder{color:var(--dim)}
   </div>
 </div>
 <div class="ui legend"><div class="h">Entities</div><div id="leg"></div><div class="tog"><span>Show labels</span><div class="sw" id="lab"></div></div></div>
-<div class="ui status" id="st"></div>
+<div class="ui status"><div id="freshness" role="status"></div><div id="st"></div></div>
 <div class="tip" id="tip"></div>
 <div class="focus" id="focus"></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -280,61 +284,115 @@ const counts={};G.nodes.forEach(n=>counts[n.type]=(counts[n.type]||0)+1);
 const ST=G.meta.status||{};function botState(k){const b=ST[k];if(!b)return{s:'never run',c:'#56697A'};if(b.state==='running')return{s:'running since '+b.started,c:'#7DD3FC'};if(b.state==='failed')return{s:'failed '+b.finished+' · '+(b.note||''),c:'#F06C6C'};const h=(Date.now()-new Date(b.finished.replace(' ','T')).getTime())/36e5;return{s:(h<24?'active · ':'idle · ')+'last ok '+b.finished+' · '+(b.note||''),c:h<24?'#7BD3A0':'#93A4B3'}}
 const BOT={};DEPTS.forEach(d=>{BOT[d.id]=d.id;BOT['bot:'+d.id]=d.id});
 function nextRun(d){if(!d.schedule.length)return 'on demand';const now=new Date();let best=null;d.schedule.forEach(s=>s.days.forEach(wd=>{for(let k=0;k<8;k++){const t=new Date(now);t.setDate(now.getDate()+k);t.setHours(s.hour,s.minute,0,0);if(t.getDay()===wd&&t>now){if(!best||t<best.t)best={t,label:s.label};break}}}));return best?`next ${best.label} ${best.t.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'})}`:''}
+const baseMeta=Object.fromEntries(G.nodes.map(n=>[n.id,n.meta||'']));
 G.nodes.forEach(n=>{if(BOT[n.id]){const st=botState(BOT[n.id]);n.meta=(n.meta?n.meta+' · ':'')+st.s;n.stateColor=st.c}});
-const hidden=new Set();let labels=true,mode='3d',rotating=true,query='';
+const hidden=new Set();let labels=true,mode='3d',rotating=false,query='';
+let efficient=true,department='',focusedId=null,scopeId=null,depth=1;
+try{efficient=localStorage.getItem('ms-efficient')!=='false'}catch(e){}
+const adjacent=new Map(G.nodes.map(n=>[n.id,[]]));
+G.links.forEach(l=>{adjacent.get(l.source)?.push({id:l.target,rel:l.rel});adjacent.get(l.target)?.push({id:l.source,rel:l.rel})});
 document.getElementById('sub').textContent=`${G.nodes.length} nodes · ${G.links.length} links · built ${G.meta.built}`;
 document.getElementById('bots').innerHTML=DEPTS.map(d=>{const st=botState(d.id);return `<div style="margin-top:3px"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${st.c};box-shadow:0 0 8px ${st.c};margin-right:8px"></i><b style="color:${d.color}">${d.name}</b> <span style="color:var(--ink2)">${st.s} · ${nextRun(d)}</span></div>`}).join('');
 const FN=G.meta.functions||[],RP=G.meta.reports||{};const nm=id=>(DEPTS.find(d=>d.id===id)||{name:id}).name;
 document.getElementById('bots').innerHTML+=`<div style="margin-top:8px;color:var(--ink2)"><b style="color:var(--ink)">Reports in to Moon Shelter:</b> ${DEPTS.map(d=>`${d.name} ${RP[d.id]?'✓ '+RP[d.id].slice(5):'— none yet'}`).join(' · ')}${G.meta.decisions_new?` · <b style="color:var(--gold)">${G.meta.decisions_new} new decisions out</b>`:''}</div><div style="margin-top:4px;color:var(--ink2)"><b style="color:var(--ink)">Functions:</b> ${FN.map(f=>`${nm(f.from)} → ${nm(f.to)} <i style="font-style:normal;color:${f.written?'#7BD3A0':'#56697A'}">${f.name}${f.written?' ✓':''}</i>`).join(' · ')}</div>`;
 const leg=document.getElementById('leg');
 Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<span><i style="background:${COL[t]}"></i>${t}</span><b>${c}</b>`;r.onclick=()=>{hidden.has(t)?hidden.delete(t):hidden.add(t);r.classList.toggle('off');redraw()};leg.appendChild(r)});
-function visible(){const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!query||n.label.toLowerCase().includes(query)||n.type.toLowerCase().includes(query)));const ids=new Set(ns.map(n=>n.id));const ls=G.links.filter(l=>ids.has(typeof l.source==='object'?l.source.id:l.source)&&ids.has(typeof l.target==='object'?l.target.id:l.target)).map(l=>({source:typeof l.source==='object'?l.source.id:l.source,target:typeof l.target==='object'?l.target.id:l.target,rel:l.rel}));return {nodes:ns.map(n=>({...n})),links:ls}}
+function visible(){
+ let allowed=null;if(scopeId){allowed=new Set([scopeId]);let frontier=[scopeId];for(let i=0;i<depth;i++){const next=[];frontier.forEach(id=>(adjacent.get(id)||[]).forEach(x=>{if(!allowed.has(x.id)){allowed.add(x.id);next.push(x.id)}}));frontier=next}}
+ const ns=G.nodes.filter(n=>!hidden.has(n.type)&&(!department||n.group===department||n.id==='orbit')&&(!allowed||allowed.has(n.id)));
+ const ids=new Set(ns.map(n=>n.id));return {nodes:ns,links:G.links.filter(l=>ids.has(l.source.id||l.source)&&ids.has(l.target.id||l.target)).map(l=>({...l,source:l.source.id||l.source,target:l.target.id||l.target}))}
+}
+
 const tip=document.getElementById('tip'),focus=document.getElementById('focus');
-function topLinks(n,k){return G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).slice(0,k).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return `<span style="color:var(--dim)">${l.rel}</span> ${byId[o]?byId[o].label:o}`})}
+function topLinks(n,k){return (adjacent.get(n.id)||[]).slice(0,k).map(x=>`${escapeText(x.rel)} · ${escapeText(byId[x.id]?.label||x.id)}`)}
+function escapeText(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
 function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra='';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
 const SL={leads_open:'Leads open',leads_new:'of which New',leads_ytd:'Leads YTD',calls_ytd:'Calls YTD',calls_7d:'Calls, last 7d',whatsapp_ytd:'WhatsApp YTD',meetings_ytd:'Meetings YTD',closings_ytd:'Closings YTD',closings_value_ytd:'Closing value YTD'};
 function statCard(n){const s=n.stats;const fmt=(k,v)=>v==null?'—':(k==='closings_value_ytd'?'AED '+Math.round(v).toLocaleString():Math.round(v).toLocaleString());
  return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">${Object.keys(SL).map(k=>`<div style="background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:7px 8px"><div style="font:500 16px IBM Plex Sans;color:${(k==='calls_7d'&&!s[k])||(k==='leads_new'&&s[k]>20)?'#F08C84':'var(--ink)'}">${fmt(k,s[k])}</div><div style="font-size:10.5px;color:var(--ink2)">${SL[k]}</div></div>`).join('')}</div>${s.agents?`<div style="font-size:11px;color:var(--dim);margin-top:6px">${s.agents} agents with Salesforce data</div>`:''}<div style="font-size:11px;color:var(--dim);margin-top:4px">Salesforce · built ${G.meta.stats_built||''}</div>`}
-function showFocus(n){if(!n){focus.style.display='none';return}const nb=G.links.filter(l=>(l.source.id||l.source)===n.id||(l.target.id||l.target)===n.id).map(l=>{const o=(l.source.id||l.source)===n.id?(l.target.id||l.target):(l.source.id||l.source);return {o:byId[o],rel:l.rel}}).filter(x=>x.o);focus.style.display='block';focus.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><div class="t">${n.type}</div><div class="n">${n.label}</div><div style="color:var(--ink2);font-size:12px;margin-top:4px">${n.meta||''}</div>${n.stats?statCard(n):''}${n.report?`<pre style="white-space:pre-wrap;font:12px/1.45 IBM Plex Sans,sans-serif;color:var(--ink);background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0 0;max-height:34vh;overflow:auto">${n.report.replace(/</g,'&lt;')}</pre>`:''}<ul>${nb.map(x=>`<li data-id="${x.o.id}"><b>${x.rel} ·</b> ${x.o.label} <b style="float:right">${x.o.type}</b></li>`).join('')}</ul>`;focus.querySelectorAll('li').forEach(li=>li.onclick=()=>focusNode(byId[li.dataset.id]))}
+function showFocus(n){
+ focus.replaceChildren();if(!n){focusedId=null;focus.style.display='none';return}focusedId=n.id;focus.style.display='block';
+ const close=document.createElement('button');close.className='btn x';close.textContent='Close';close.onclick=()=>showFocus(null);focus.append(close);
+ for(const [cls,text] of [['t',n.type],['n',n.label],['m',n.meta||'']]){const e=document.createElement('div');e.className=cls;e.textContent=text;focus.append(e)}
+ if(n.stats){const card=document.createElement('div');card.innerHTML=statCard(n);focus.append(card)}
+ const actions=document.createElement('div');actions.className='focus-actions';focus.append(actions);
+ const button=(text,fn)=>{const e=document.createElement('button');e.className='btn';e.textContent=text;e.onclick=fn;actions.append(e)};
+ button('Connections only',()=>{scopeId=n.id;depth=1;redraw()});button('Expand 2 steps',()=>{scopeId=n.id;depth=2;redraw()});button('Show all',()=>{scopeId=null;redraw()});
+ if(G.meta.private){const source=/^(brain|mkt|crm):((?:ref|live|do)\/.+\.md)$/.exec(n.id);const dept=source?{brain:'sales',mkt:'marketing',crm:'crm'}[source[1]]:n.group;
+ const link=(label,path)=>{const a=document.createElement('a');a.className='btn';a.textContent=label;a.href='/file?'+new URLSearchParams({dept,path});a.target='_blank';a.rel='noopener';actions.append(a)};
+ if(source)link('Open source',source[2]);if(DEPTS.some(d=>d.id===dept))link('Department report','live/report.md');}
+ if(n.report){const pre=document.createElement('pre');pre.style.cssText='white-space:pre-wrap;font:12px/1.5 sans-serif';pre.textContent=n.report;focus.append(pre)}
+ const ul=document.createElement('ul');(adjacent.get(n.id)||[]).forEach(x=>{const li=document.createElement('li'),b=document.createElement('button');b.className='btn';b.textContent=`${x.rel} · ${byId[x.id]?.label||x.id}`;b.onclick=()=>focusNode(byId[x.id]);li.append(b);ul.append(li)});focus.append(ul)
+}
+
 let g3,g2;const el=document.getElementById('g');let MX=0,MY=0;addEventListener('mousemove',e=>{MX=e.clientX;MY=e.clientY});
 function nodeSize(n){return Math.max(2,n.size*(0.9+Math.min(deg[n.id]||0,12)/12))}
 const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
 function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=new THREE.Color(COL[n.type]);const grp=new THREE.Group();
- const seg=n.type==='Agent'?16:48;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:(n.type==='HQ'?.30:n.type==='Department'?.16:.14),shininess:(n.type==='HQ'||n.type==='Department')?120:80,specular:0xffffff});
+ const seg=efficient?12:n.type==='Agent'?16:32;const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:(n.type==='HQ'?.30:n.type==='Department'?.16:.14),shininess:(n.type==='HQ'||n.type==='Department')?120:80,specular:0xffffff});
  grp.add(new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),mat));
  const live=n.type==='Agent'&&n.stats?(n.stats.calls_7d>0?TH.active:TH.idle):null;
  const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:live?new THREE.Color(live):(n.type==='Bot'&&n.stateColor)?new THREE.Color(n.stateColor):col,transparent:true,opacity:Math.min(.6,(n.type==='HQ'?.7:n.type==='Department'?.55:n.type==='Team'?.45:n.type==='Agent'?(n.stats?.4:.18):.3)*(TH.glow||1)),depthWrite:false,blending:THREE.AdditiveBlending}));const gs=r*(n.type==='HQ'?5:n.type==='Department'?4:n.type==='Team'?3.2:2.6)*(.6+(TH.glow||1)*.5);glow.scale.set(gs,gs,1);grp.add(glow);
- if(labels&&!(n.type==='Agent'&&!G.meta.private&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Team'?4.2:n.type==='Agent'?2.6:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor=themeKey==='paper'?'rgba(255,255,255,.7)':'rgba(8,6,16,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
+ if(labels&&(!efficient||['HQ','Department','Team'].includes(n.type)||n.id===focusedId)&&!(n.type==='Agent'&&!G.meta.private&&(deg[n.id]||0)<2&&!query)){const t=new SpriteText(n.type==='Team'&&n.meta&&n.meta.startsWith('lead:')?n.label+' · '+n.meta.slice(6):n.label);t.color=COL[n.type];t.textHeight=n.type==='HQ'?7:n.type==='Department'?5.2:n.type==='Team'?4.2:n.type==='Agent'?2.6:3.2;t.fontFace='IBM Plex Sans';t.backgroundColor=themeKey==='paper'?'rgba(255,255,255,.7)':'rgba(8,6,16,.55)';t.padding=1.2;t.borderRadius=2;t.position.y=r*1.6+2;grp.add(t)}
  return grp}
-function addStars(scene){if(!TH.stars.length)return;const n=2200,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const pal=TH.stars.length?TH.stars:['#000000'];const c=new THREE.Color(pal[Math.floor(Math.random()*pal.length)]);colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
+function addStars(scene){if(efficient||!TH.stars.length)return;const n=1000,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const pal=TH.stars.length?TH.stars:['#000000'];const c=new THREE.Color(pal[Math.floor(Math.random()*pal.length)]);colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
-function build3(){el.innerHTML='';g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
+function build3(){disposeGraphs();el.innerHTML='';g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
  .linkCurvature(l=>l.rel.startsWith('fn:')?.35:.18).linkColor(LK).linkWidth(l=>l.rel.startsWith('fn:')?2.2:l.rel==='reports'?2.6:l.rel==='owns'?1.4:l.rel==='runs'?1:.45).linkOpacity(.6)
- .linkDirectionalParticles(l=>l.rel.startsWith('fn:')?5:l.rel==='reports'?6:l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(l=>l.rel.startsWith('fn:')||l.rel==='reports'?3:1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(PK)
+ .linkDirectionalParticles(l=>efficient?0:l.rel.startsWith('fn:')?5:l.rel==='reports'?6:l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(l=>l.rel.startsWith('fn:')||l.rel==='reports'?3:1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(PK)
  .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#C4B5FD">${l.rel.replace('fn:','hands over: ')}</b> ${(l.target.label||l.target)}</span>`)
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n)showTip(n,MX,MY);else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
- const scene=g3.scene();scene.add(new THREE.AmbientLight(0xffffff,.45));const key=new THREE.DirectionalLight(0xffffff,1.35);key.position.set(260,340,420);scene.add(key);const fill=new THREE.PointLight(new THREE.Color(TH.accent2),.9,1400);fill.position.set(-380,-160,-260);scene.add(fill);const cam=g3.camera();cam.add(new THREE.PointLight(0xffffff,.45,0));scene.add(cam);addStars(scene);
+ g3.renderer().setPixelRatio(Math.min(devicePixelRatio,efficient?1:2));const scene=g3.scene();scene.add(new THREE.AmbientLight(0xffffff,.45));const key=new THREE.DirectionalLight(0xffffff,1.35);key.position.set(260,340,420);scene.add(key);const fill=new THREE.PointLight(new THREE.Color(TH.accent2),.9,1400);fill.position.set(-380,-160,-260);scene.add(fill);const cam=g3.camera();cam.add(new THREE.PointLight(0xffffff,.45,0));scene.add(cam);addStars(scene);
  g3.d3Force('charge').strength(-95);g3.d3Force('center',null);g3.d3Force('link').distance(l=>l.rel==='member'?18:l.rel==='owns'?75:l.rel==='loads'?42:32);
  const ctl=g3.controls();ctl.autoRotate=false;ctl.enableDamping=true;
- const SPEED=(2*Math.PI)/(360*60); // one turn every ~6 minutes at 60fps
- cancelAnimationFrame(window.__orb);const spin=()=>{window.__orb=requestAnimationFrame(spin);if(!rotating||mode!=='3d')return;const grp=g3.scene().children.find(o=>o.type==='Group'||o.isGroup);if(grp)grp.rotation.z+=SPEED};spin();
- setTimeout(()=>{g3.zoomToFit(700,70);setTimeout(()=>g3.cameraPosition(undefined,{x:0,y:0,z:0},600),750)},900)}
-function build2(){el.innerHTML='';g2=ForceGraph()(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(LK).linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(PK)
- .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels)return;if(n.type==='Agent'&&!G.meta.private&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
+ g3.controls().autoRotate=rotating&&!efficient;g3.controls().autoRotateSpeed=.3;
+ restoreView(g3,'3d');}
+
+function build2(){disposeGraphs();el.innerHTML='';g2=ForceGraph()(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(LK).linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>efficient?0:l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(PK)
+ .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels||(efficient&&scale<2.2&&!['HQ','Department','Team'].includes(n.type)&&n.id!==focusedId))return;if(n.type==='Agent'&&!G.meta.private&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g2.graph2ScreenCoords(n.x,n.y);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
- g2.d3Force('charge').strength(-120);g2.d3Force('center',null);setTimeout(()=>g2.zoomToFit(600,40),900)}
-function focusNode(n){if(!n)return;showFocus(n);if(mode==='3d'&&g3){rotating=false;document.getElementById('rot').textContent='Resume orbit';const grp=g3.scene().children.find(o=>o.type==='Group'||o.isGroup);const v=new THREE.Vector3(n.x,n.y,n.z);if(grp)v.applyEuler(grp.rotation);const r=v.length();if(r<5){g3.cameraPosition({x:0,y:0,z:520},{x:0,y:0,z:0},1400)}else{const d=n.type==='Department'?260:n.type==='Team'?200:130;g3.cameraPosition({x:v.x*(1+d/r),y:v.y*(1+d/r),z:v.z*(1+d/r)+d*.6},{x:v.x,y:v.y,z:v.z},1400)}}else if(g2){g2.centerAt(n.x,n.y,800);g2.zoom(4,800)}}
+ g2.d3Force('charge').strength(-120);g2.d3Force('center',null);restoreView(g2,'2d')}
+function focusNode(n){if(!n)return;focusedId=n.id;scopeId=null;department='';hidden.delete(n.type);document.getElementById('department').value='';redraw();n=byId[n.id];showFocus(n);if(mode==='3d'&&g3){rotating=false;g3.controls().autoRotate=false;document.getElementById('rot').textContent='Resume orbit';const grp=g3.scene().children.find(o=>o.type==='Group'||o.isGroup);const v=new THREE.Vector3(n.x,n.y,n.z);if(grp)v.applyEuler(grp.rotation);const r=v.length();if(r<5){g3.cameraPosition({x:0,y:0,z:520},{x:0,y:0,z:0},1400)}else{const d=n.type==='Department'?260:n.type==='Team'?200:130;g3.cameraPosition({x:v.x*(1+d/r),y:v.y*(1+d/r),z:v.z*(1+d/r)+d*.6},{x:v.x,y:v.y,z:v.z},1400)}}else if(g2){g2.centerAt(n.x,n.y,800);g2.zoom(4,800)}}
 function redraw(){const d=visible();(mode==='3d'?g3:g2).graphData(d);status()}
 function status(){const d=visible();document.getElementById('st').innerHTML=`Showing ${d.nodes.length} of ${G.nodes.length} nodes · hover to inspect · click to focus · drag to move<br><a href="https://github.com/kamelhijawi/elysian-hq">kamelhijawi/elysian-hq</a> · sales ${G.meta.sales_commits} commits · marketing ${G.meta.mkt_commits} commits`}
-document.getElementById('b3').onclick=()=>{mode='3d';document.getElementById('b3').classList.add('on');document.getElementById('b2').classList.remove('on');build3();status()};
-document.getElementById('b2').onclick=()=>{mode='2d';document.getElementById('b2').classList.add('on');document.getElementById('b3').classList.remove('on');build2();status()};
-document.getElementById('rot').onclick=e=>{rotating=!rotating;e.target.textContent=rotating?'Pause orbit':'Resume orbit'};
-document.getElementById('fit').onclick=()=>{mode==='3d'?g3.zoomToFit(600,60):g2.zoomToFit(600,40)};
+const viewCache={}, timers=new Set();
+function later(fn,ms){const id=setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id)}
+function disposeGraphs(){
+ timers.forEach(clearTimeout);timers.clear();cancelAnimationFrame(window.__orb);
+ if(g3){viewCache['3d']={position:{...g3.cameraPosition()},target:{...g3.controls().target}};g3.pauseAnimation();g3._destructor?.();g3=null}
+ if(g2){viewCache['2d']={center:g2.centerAt(),zoom:g2.zoom()};g2.pauseAnimation();g2._destructor?.();g2=null}
+}
+function restoreView(g,m){const v=viewCache[m];if(v){if(m==='3d')g.cameraPosition(v.position,v.target,0);else{g.centerAt(v.center.x,v.center.y,0);g.zoom(v.zoom,0)}}else later(()=>g.zoomToFit(600,60),900);if(document.hidden)g.pauseAnimation()}
+function syncControls(){document.getElementById('b3').classList.toggle('on',mode==='3d');document.getElementById('b2').classList.toggle('on',mode==='2d');const e=document.getElementById('efficient');e.textContent='Efficiency: '+(efficient?'on':'off');e.setAttribute('aria-pressed',String(efficient));document.getElementById('rot').textContent=rotating?'Pause orbit':'Resume orbit';document.getElementById('rot').disabled=efficient||mode==='2d'}
+function rebuild(){mode==='3d'?build3():build2();syncControls();status()}
+document.getElementById('b3').onclick=()=>{if(mode!=='3d'){mode='3d';rebuild()}};
+document.getElementById('b2').onclick=()=>{if(mode!=='2d'){mode='2d';rebuild()}};
+document.getElementById('rot').onclick=()=>{rotating=!rotating;if(g3)g3.controls().autoRotate=rotating;syncControls()};
+document.getElementById('fit').onclick=()=>{(g3||g2).zoomToFit(600,60)};
 document.getElementById('lab').onclick=e=>{labels=!labels;e.target.classList.toggle('off');mode==='3d'?g3.nodeThreeObject(nodeObj):g2.nodeCanvasObject(g2.nodeCanvasObject())};
-document.getElementById('q').oninput=e=>{query=e.target.value.trim().toLowerCase();redraw()};
-const sel=document.getElementById('theme');sel.innerHTML=Object.entries(THEMES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');sel.value=themeKey;sel.onchange=e=>{applyTheme(e.target.value);mode==='3d'?build3():build2();status()};
-applyTheme(themeKey);build3();status();
-addEventListener('resize',()=>{const g=mode==='3d'?g3:g2;if(g){g.width(innerWidth).height(innerHeight)}});
+document.getElementById('efficient').onclick=()=>{efficient=!efficient;if(efficient)rotating=false;try{localStorage.setItem('ms-efficient',String(efficient))}catch(e){}rebuild()};
+const departmentSelect=document.getElementById('department');DEPTS.forEach(d=>{const o=document.createElement('option');o.value=d.id;o.textContent=d.name;departmentSelect.append(o)});
+departmentSelect.onchange=()=>{department=departmentSelect.value;scopeId=null;showFocus(null);redraw();(g3||g2).zoomToFit(600,60)};
+const results=document.getElementById('results'),search=document.getElementById('q');
+function searchResults(){query=search.value.trim().toLowerCase();results.replaceChildren();results.hidden=!query;if(!query)return;const matches=G.nodes.filter(n=>`${n.label} ${n.type} ${n.meta||''}`.toLowerCase().includes(query)).sort((a,b)=>Number(b.label.toLowerCase().startsWith(query))-Number(a.label.toLowerCase().startsWith(query)));for(const n of matches.slice(0,20)){const b=document.createElement('button');b.textContent=`${n.label} · ${n.type}`;b.onclick=()=>{focusNode(n);results.hidden=true};results.append(b)}const count=document.createElement('div');count.style.padding='8px';count.textContent=matches.length?`${matches.length} matches${matches.length>20?' · first 20 shown':''}`:'No matches';results.append(count)}
+search.oninput=searchResults;search.onfocus=()=>{if(search.value)searchResults()};
+search.onkeydown=e=>{if(e.key==='ArrowDown'){e.preventDefault();results.querySelector('button')?.focus()}if(e.key==='Enter'){results.querySelector('button')?.click()}if(e.key==='Escape'){results.hidden=true;search.blur()}};
+results.onkeydown=e=>{const buttons=[...results.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(i+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus()}if(e.key==='Escape'){results.hidden=true;search.focus();results.hidden=true}};
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))results.hidden=true});
+document.getElementById('reset').onclick=()=>{department='';departmentSelect.value='';scopeId=null;hidden.clear();leg.querySelectorAll('.off').forEach(e=>e.classList.remove('off'));search.value='';query='';results.hidden=true;showFocus(null);redraw();(g3||g2).zoomToFit(600,60)};
+const sel=document.getElementById('theme');sel.innerHTML=Object.entries(THEMES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');sel.value=themeKey;sel.onchange=e=>{applyTheme(e.target.value);rebuild()};
+applyTheme(themeKey);rebuild();
+addEventListener('resize',()=>{const g=g3||g2;if(g)g.width(innerWidth).height(innerHeight)});
+document.addEventListener('visibilitychange',()=>{const g=g3||g2;if(g){if(document.hidden)g.pauseAnimation();else{g.resumeAnimation();refreshStatus()}}});
+const freshness=document.getElementById('freshness');
+const statusFooter=[...document.getElementById('bots').children].slice(DEPTS.length);
+const topPanel=document.querySelector('.top');new ResizeObserver(()=>{focus.style.top=Math.max(92,topPanel.getBoundingClientRect().bottom+10)+'px';focus.style.maxHeight=Math.max(160,innerHeight-topPanel.getBoundingClientRect().bottom-100)+'px'}).observe(topPanel);
+let refreshing=false;
+async function refreshStatus(){if(!G.meta.private||document.hidden||refreshing)return;refreshing=true;try{const response=await fetch('/graph-status',{cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('Status unavailable');const data=await response.json();if(!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid status');Object.keys(ST).forEach(k=>delete ST[k]);Object.assign(ST,data);const box=document.getElementById('bots');box.replaceChildren();DEPTS.forEach(d=>{const st=botState(d.id);const row=document.createElement('div');row.style.color=st.c;row.textContent=`${d.name} · ${st.s} · ${nextRun(d)}`;box.append(row);for(const id of [d.id,'bot:'+d.id])if(byId[id]){byId[id].stateColor=st.c;byId[id].meta=(baseMeta[id]?baseMeta[id]+' · ':'')+st.s}});statusFooter.forEach(e=>box.append(e));if(focusedId)showFocus(byId[focusedId]);freshness.textContent='Status checked '+new Date().toLocaleTimeString()+' · graph snapshot '+G.meta.built;freshness.style.color='var(--ink2)'}catch(e){freshness.textContent='Status unavailable · showing snapshot '+G.meta.built;freshness.style.color='#F08C84'}finally{refreshing=false}}
+freshness.textContent='Graph snapshot '+G.meta.built;
+if(G.meta.private){refreshStatus();setInterval(refreshStatus,30000)}
+
 </script>
 """
 (HQ/"private").mkdir(exist_ok=True)
