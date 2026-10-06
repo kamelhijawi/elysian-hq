@@ -71,6 +71,16 @@ article h1{font-size:22px;margin-top:0}article h2{font-size:16px;margin:22px 0 8
 table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase}
 .blank{background:#f0c14b33;color:var(--gold);padding:0 4px;border-radius:4px}pre{background:var(--bg);padding:12px;border-radius:8px;overflow:auto;font-size:13px}code{font-size:13px}
 .post pre.posttext{white-space:pre-wrap;font:14px/1.5 -apple-system,"IBM Plex Sans",Helvetica,Arial,sans-serif;background:var(--bg);padding:12px;border-radius:8px;max-height:320px;overflow:auto}.post .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line)}
+.tile{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c,var(--gold));border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.tile.centre{border-top-color:var(--gold)}.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}.board .tile{margin:0}
+.th{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.th h2{margin:0;font-size:17px}.next{color:var(--mute);font-size:12px;margin-left:auto}
+.pill{font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}.pill.ok{color:var(--ok);border-color:var(--ok)}.pill.run{color:var(--run);border-color:var(--run)}.pill.bad{color:var(--bad);border-color:var(--bad)}
+.head{margin:10px 0 8px;font-size:14px;line-height:1.45}.meta,.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0;font-size:12px}
+.lab{color:var(--mute);min-width:62px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.chip{display:inline-block;padding:3px 9px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:12px}.chip:hover{border-color:var(--gold)}.chip.strong{border-color:var(--c,var(--gold));font-weight:600}.chip.dim,.dim{color:var(--mute)}
+a.chip+a.chip{margin-left:-2px}.dec{color:var(--gold);font-weight:600}.dec.none{color:var(--mute);font-weight:400}
+.jobs .job{display:inline-flex;flex-direction:column;margin-right:10px}.jobs button{margin-top:6px;padding:7px 11px;font-size:13px}.jobs .state{font-size:11px}
+h2.sec{margin:28px 0 6px;font-size:17px}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -93,9 +103,9 @@ def make_pdf(job,f):
                         f"--print-to-pdf={out}",url],timeout=60,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     except subprocess.TimeoutExpired: pass
     return out if out.exists() else None
-def page(body,title="Moon Shelter reports"):
+def page(body,title="Moon Shelter"):
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}{PRINT}</style></head>
-<body><header><span class="tag">Moon Shelter</span><h1>Reports</h1><a href="/">all reports</a><a href="/graph">graph</a></header><main>{body}</main></body></html>"""
+<body><header><span class="tag">Moon Shelter</span><h1>Board</h1><a href="/">board</a><a href="/graph">3D map</a></header><main>{body}</main></body></html>"""
 def state_of(job):
     b=status().get(JOBS[job]["bot"],{}); running=RUNNING.get(job) and RUNNING[job].poll() is None
     if running: return "run","running since "+b.get("started","now")+" · about 5 to 10 minutes"
@@ -153,28 +163,145 @@ def queue_html():
     if not live: out.append('<p style="color:var(--mute)">Nothing waiting for you.</p>')
     if done: out.append('<p style="color:var(--mute);font-size:13px">Recent: '+" · ".join(html.escape(f'{r["id"]} {r["status"].lower()} {r["posted"] or ""}') for r in done)+'</p>')
     return "".join(out)
-def home():
-    cards=[]
+# ---------- the flat board: one tile per department, every output one click away ----------
+MAN=json.loads((HQ/"departments.json").read_text())
+DEPTS=MAN["departments"]; CENTRE=MAN.get("centre",{"id":"moonshelter","name":"Moon Shelter","folder":"moonshelter"})
+FOLDERS={d["id"]:E/d["folder"] for d in DEPTS}; FOLDERS[CENTRE["id"]]=E/CENTRE["folder"]
+OUTPUTS={
+ "crm":[("Sweeps","live/sweeps"),("Reports","live/reports"),("Scoreboard","live/scoreboard.md"),("Rules","ref/rules.md")],
+ "sales":[("Pulse","live/pulse.md"),("Agent stats","live/agent-stats.md"),("Monday briefs","live/briefs"),("Leads daily","live/leads-daily"),("Actions","live/actions.md"),("Week","live/week.md"),("Team","ref/team.md")],
+ "marketing":[("Production orders","live/production"),("Posts","live/posts"),("Plans","live/plans"),("Ideas","live/ideas.md"),("Week","live/week.md"),("Publish queue","live/publish-queue.md"),("Actions","live/actions.md")],
+ "voice":[("Calls","live/calls"),("Rules","ref/rules.md"),("Scripts","ref/scripts.md")],
+ "moonshelter":[("Digest","live/today.md"),("Decisions","live/decisions.md"),("Inbox","live/inbox"),("PDFs","live/pdf")],
+}
+def next_run(sched):
+    """Next scheduled run as 'Tue 06:30 · label'. departments.json weekdays: 0=Sun … 6=Sat."""
+    now=datetime.datetime.now(); best=None
+    for s in sched or []:
+        for k in range(0,8):
+            d=(now+datetime.timedelta(days=k)).replace(hour=s["hour"],minute=s["minute"],second=0,microsecond=0)
+            if ((d.weekday()+1)%7) in s["days"] and d>now and (best is None or d<best[0]): best=(d,s["label"])
+    return f"{best[0]:%a %H:%M} · {best[1]}" if best else "on demand"
+def section_lines(lines,name):
+    out=[]; on=False
+    for l in lines:
+        if l.startswith("## "): on=l[3:].strip().lower().startswith(name.lower()); continue
+        if on: out.append(l)
+    return out
+def report_info(folder):
+    p=folder/"live/report.md"
+    if not p.exists(): return None
+    lines=p.read_text(errors="ignore").splitlines()
+    m=re.search(r"(\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?)",lines[0]) if lines else None
+    find=[l for l in section_lines(lines,"Three findings") if re.match(r"^\s*\d+[.)]",l)]
+    first=re.sub(r"\*\*|`","",re.sub(r"^\s*\d+[.)]\s*","",find[0])) if find else ""
+    dec=[l for l in section_lines(lines,"Needs a decision") if re.match(r"^\s*\d+[.)]",l)]
+    st=next((l[3:].replace("Status:","").strip() for l in lines if l.startswith("## Status")),"")
+    return {"date":m.group(1) if m else "","first":first,"decisions":len(dec),"status":st}
+def digest_info():
+    p=FOLDERS[CENTRE["id"]]/"live/today.md"
+    if not p.exists(): return {"date":"","line":""}
+    lines=p.read_text(errors="ignore").splitlines(); date=""; line=""
+    for i,l in enumerate(lines):
+        if not date and re.match(r"^## \d{4}-\d{2}-\d{2}",l): date=l[3:].strip()
+        if date and l.startswith("### In one line"):
+            line=next((x for x in lines[i+1:] if x.strip()),""); break
+    return {"date":date,"line":re.sub(r"\*\*|`","",line)}
+def open_decisions():
+    p=FOLDERS[CENTRE["id"]]/"live/decisions.md"
+    return sum(1 for l in p.read_text(errors="ignore").splitlines() if re.match(r"^\d{4}-",l) and l.rstrip().endswith("| NEW")) if p.exists() else 0
+def flink(dept,rel,label=None,cls=""):
+    return '<a class="%s" href="/file?dept=%s&path=%s">%s</a>'%(cls,dept,urllib.parse.quote(rel),html.escape(label or rel))
+def lslink(dept,rel,label):
+    return '<a class="chip" href="/ls?dept=%s&path=%s">%s</a>'%(dept,urllib.parse.quote(rel),html.escape(label))
+def safe_path(dept,rel):
+    base=FOLDERS.get(dept)
+    if not base or not rel or rel.startswith("/") or ".." in rel.split("/"): return None
+    p=(base/rel)
+    try: p.resolve().relative_to(base.resolve())
+    except ValueError: return None
+    return p
+def pill(dept):
+    cls,txt=("","never run")
+    b=status().get(dept,{})
+    if b:
+        if b.get("state")=="running": cls,txt="run","running since "+b.get("started","")
+        elif b.get("state")=="failed": cls,txt="bad","failed "+b.get("finished","")
+        else: cls,txt="ok","last run "+b.get("finished","")
+    return '<span class="pill %s">%s</span>'%(cls,html.escape(txt))
+def outputs_html(dept):
+    base=FOLDERS[dept]; chips=[]
+    for label,rel in OUTPUTS.get(dept,[]):
+        p=base/rel
+        if p.is_dir():
+            fs=latest(p,"*")
+            fs=[f for f in fs if not f.name.startswith(".")]
+            if fs: chips.append(flink(dept,str(fs[0].relative_to(base)),f"{label}: {fs[0].name}","chip")+lslink(dept,rel,"all"))
+            else: chips.append('<span class="chip dim">%s: empty</span>'%html.escape(label))
+        elif p.exists(): chips.append(flink(dept,rel,label,"chip"))
+    return "".join(chips)
+def jobs_html(dept):
+    out=[]
     for k,j in JOBS.items():
-        cls,txt=state_of(k); files=latest(j["dir"],j.get("pattern","*.md"))[:6]
-        fl="".join(f'<li><a href="/report?job={k}&f={urllib.parse.quote(p.name)}">{html.escape(p.name)}</a><span>{datetime.datetime.fromtimestamp(p.stat().st_mtime):%d %b %H:%M}</span> <a href="/pdf?job={k}&f={urllib.parse.quote(p.name)}" style="color:var(--gold);font-size:12px">PDF</a></li>' for p in files)
-        cards.append(f'''<div class="card" data-job="{k}"><h2>{j["label"]}</h2><div class="what">{j["what"]}</div>
-<button onclick="run('{k}')" {"disabled" if cls=="run" else ""}>Generate {j["label"].lower()}</button><div class="state {cls}">{html.escape(txt)}</div><ul class="files">{fl or "<li><span>no reports yet</span></li>"}</ul></div>''')
-    return page(f'''<p style="color:var(--mute);margin-top:0">Press a button. The department bot runs on Claude headless, reads Salesforce read-only, writes a dated file, and it appears here. Nothing is sent or changed anywhere.</p>
-<div class="grid">{"".join(cards)}</div>
-<h2 style="margin:28px 0 6px;font-size:17px">Publish queue · LinkedIn</h2>
-<p style="color:var(--mute);margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>
-<div class="grid">{queue_html()}</div>
-<script>
-async function act(pid,what){{if(what==='reject'&&!confirm('Reject '+pid+'?'))return;let w=null;if(what==='approve')w=window.open('about:blank','_blank');
-const r=await fetch('/queue/'+what+'/'+pid,{{method:'POST'}});const j=await r.json();if(!j.ok){{if(w)w.close();alert(j.why||'failed');return}}if(w){{if(j.url)w.location=j.url;else w.close()}}location.reload()}}
-async function posted(pid){{const u=prompt('Posted. Paste the post URL if you have it (optional):','')||'';await fetch('/queue/posted/'+pid,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{url:u}})}});location.reload()}}
-async function run(k){{const c=document.querySelector(`[data-job="${{k}}"]`);const b=c.querySelector('button');b.disabled=true;c.querySelector('.state').textContent='starting…';
-await fetch('/run/'+k,{{method:'POST'}});poll()}}
-async function poll(){{const s=await (await fetch('/status')).json();let any=false;for(const k in s){{const c=document.querySelector(`[data-job="${{k}}"]`);if(!c)continue;const st=c.querySelector('.state');st.className='state '+s[k][0];st.textContent=s[k][1];c.querySelector('button').disabled=s[k][0]==='run';if(s[k][0]==='run')any=true}}
-if(any)setTimeout(poll,8000);else if(window._wasRunning)location.reload();window._wasRunning=any}}
+        if j["dept"]!=dept: continue
+        cls,txt=state_of(k)
+        out.append('<div class="job" data-job="%s"><button onclick="run(\'%s\')" %s>Generate %s</button><div class="state %s">%s</div></div>'%(k,k,"disabled" if cls=="run" else "",html.escape(j["label"].lower()),cls,html.escape(txt)))
+    return "".join(out)
+def tile(d):
+    dept=d["id"]; base=FOLDERS[dept]; r=report_info(base) or {"date":"","first":"","decisions":0,"status":""}
+    hand=[]
+    for f in sorted((base/"live/handoffs").glob("*.md")) if (base/"live/handoffs").exists() else []:
+        first=(f.read_text(errors="ignore").splitlines() or [""])[0]; dt=first[:10] if re.match(r"^\d{4}-\d{2}-\d{2}",first) else ""
+        hand.append(flink(dept,f"live/handoffs/{f.name}",f"to {f.stem} {dt}".strip(),"chip"))
+    dec='<span class="dec">%d decision%s owed</span>'%(r["decisions"],"" if r["decisions"]==1 else "s") if r["decisions"] else '<span class="dec none">no decisions owed</span>'
+    headline=html.escape(r["first"][:260]+("…" if len(r["first"])>260 else "")) if r["first"] else '<span class="dim">no report yet</span>'
+    return f'''<section class="tile" style="--c:{d.get("color","#888")}">
+<div class="th"><h2>{html.escape(d["name"])}</h2>{pill(dept)}<span class="next">next {html.escape(next_run(d.get("schedule")))}</span></div>
+<p class="head">{headline}</p>
+<div class="meta">{flink(dept,"live/report.md","report "+r["date"],"chip strong")}{dec}<span class="dim">{html.escape(r["status"][:90])}</span></div>
+<div class="row"><span class="lab">handoffs</span>{"".join(hand) or '<span class="dim">none</span>'}</div>
+<div class="row"><span class="lab">outputs</span>{outputs_html(dept)}</div>
+<div class="row jobs">{jobs_html(dept)}</div>
+</section>'''
+def centre_tile():
+    dg=digest_info(); n=open_decisions(); dept=CENTRE["id"]
+    return f'''<section class="tile centre">
+<div class="th"><h2>Moon Shelter</h2>{pill(dept)}<span class="next">digest {html.escape(dg["date"])} · next {html.escape(next_run(CENTRE.get("schedule")))}</span></div>
+<p class="head">{html.escape(dg["line"]) or '<span class="dim">no digest yet</span>'}</p>
+<div class="meta">{flink(dept,"live/today.md","full digest","chip strong")}{flink(dept,"live/decisions.md",f"{n} open decision{'s' if n!=1 else ''}","chip strong")}{outputs_html(dept)}</div>
+</section>'''
+JS_HOME="""<script>
+async function act(pid,what){if(what==='reject'&&!confirm('Reject '+pid+'?'))return;let w=null;if(what==='approve')w=window.open('about:blank','_blank');
+const r=await fetch('/queue/'+what+'/'+pid,{method:'POST'});const j=await r.json();if(!j.ok){if(w)w.close();alert(j.why||'failed');return}if(w){if(j.url)w.location=j.url;else w.close()}location.reload()}
+async function posted(pid){const u=prompt('Posted. Paste the post URL if you have it (optional):','')||'';await fetch('/queue/posted/'+pid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});location.reload()}
+async function run(k){const c=document.querySelector('[data-job="'+k+'"]');const b=c.querySelector('button');b.disabled=true;c.querySelector('.state').textContent='starting…';await fetch('/run/'+k,{method:'POST'});poll()}
+async function poll(){const s=await (await fetch('/status')).json();let any=false;for(const k in s){const c=document.querySelector('[data-job="'+k+'"]');if(!c)continue;const st=c.querySelector('.state');st.className='state '+s[k][0];st.textContent=s[k][1];c.querySelector('button').disabled=s[k][0]==='run';if(s[k][0]==='run')any=true}
+if(any)setTimeout(poll,8000);else if(window._wasRunning)location.reload();window._wasRunning=any}
 poll();
-</script>''')
+</script>"""
+def home():
+    tiles="".join(tile(d) for d in DEPTS)
+    body=(centre_tile()+'<div class="board">'+tiles+'</div>'
+          +'<h2 class="sec">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>'
+          +'<div class="grid">'+queue_html()+'</div>'
+          +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
+          +JS_HOME)
+    return page(body)
+def ls_page(dept,rel):
+    base=FOLDERS[dept]; p=safe_path(dept,rel)
+    if not p or not p.is_dir(): return page("<article><p>not found</p></article>","not found")
+    fs=[f for f in latest(p,"*") if not f.name.startswith(".")]
+    rows="".join('<li>%s<span>%s · %s</span></li>'%(flink(dept,str(f.relative_to(base)),f.name),datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%d %b %H:%M"),"folder" if f.is_dir() else f"{f.stat().st_size//1024} KB") for f in fs)
+    return page(f'<article><h1>{html.escape(dept)} / {html.escape(rel)}</h1><ul class="files">{rows or "<li>empty</li>"}</ul></article>',f"{dept} · {rel}")
+def file_page(dept,rel,printing=False):
+    p=safe_path(dept,rel)
+    if not p or not p.exists(): return None
+    if p.is_dir(): return ls_page(dept,rel)
+    ext=p.suffix.lower()
+    if ext==".md":
+        bar="" if printing else f'<div class="toolbar"><a class="btn" href="/pdf?dept={dept}&path={urllib.parse.quote(rel)}">Download PDF</a><span>{html.escape(dept)} / {html.escape(rel)}</span></div>'
+        return page(f"{bar}<article>{md2html(p.read_text(errors='ignore'))}</article>",f"{dept} · {p.name}")
+    return ("raw",p)
 # --- remote access over Tailscale (Kamel's own devices only) ---
 import ipaddress, threading, socket
 TS_CLI=["/Applications/Tailscale.app/Contents/MacOS/Tailscale","tailscale"]
@@ -215,6 +342,29 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self.send(g.read_text(errors="ignore")) if g.exists() else self.send("graph not built","text/plain",404)
         if u.path=="/": return self.send(home())
         if u.path=="/status": return self.send(json.dumps({k:state_of(k) for k in JOBS}),"application/json")
+        if u.path=="/file":
+            dept=q.get("dept",[""])[0]; rel=q.get("path",[""])[0]
+            if dept not in FOLDERS: return self.send("bad request","text/plain",400)
+            res=file_page(dept,rel,printing=bool(q.get("print")))
+            if res is None: return self.send("not found","text/plain",404)
+            if isinstance(res,tuple):
+                p=res[1]; ext=p.suffix.lower(); ct={".pdf":"application/pdf",".png":"image/png",".jpg":"image/jpeg",".html":"text/html; charset=utf-8",".csv":"text/plain; charset=utf-8",".json":"application/json"}.get(ext,"text/plain; charset=utf-8")
+                b=p.read_bytes(); self.send_response(200); self.send_header("Content-Type",ct); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self.send(res)
+        if u.path=="/ls":
+            dept=q.get("dept",[""])[0]; rel=q.get("path",[""])[0]
+            if dept not in FOLDERS: return self.send("bad request","text/plain",400)
+            return self.send(ls_page(dept,rel))
+        if u.path=="/pdf" and q.get("dept"):
+            dept=q.get("dept",[""])[0]; rel=q.get("path",[""])[0]; p=safe_path(dept,rel)
+            if dept not in FOLDERS or not p or not p.exists() or p.suffix!=".md": return self.send("bad request","text/plain",400)
+            PDFDIR.mkdir(parents=True,exist_ok=True); out=PDFDIR/f"{dept}-{p.stem}.pdf"
+            if not (out.exists() and out.stat().st_mtime>=p.stat().st_mtime):
+                url=f"http://127.0.0.1:{PORT}/file?dept={dept}&path={urllib.parse.quote(rel)}&print=1"
+                try: subprocess.run([CHROME,"--headless=new","--disable-gpu","--no-first-run","--no-default-browser-check","--no-pdf-header-footer",f"--print-to-pdf={out}",url],timeout=60,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                except subprocess.TimeoutExpired: pass
+            if not out.exists(): return self.send("PDF failed","text/plain",500)
+            b=out.read_bytes(); self.send_response(200); self.send_header("Content-Type","application/pdf"); self.send_header("Content-Disposition",f'inline; filename="{out.name}"'); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b); return
         if u.path=="/report":
             job=q.get("job",[""])[0]; f=q.get("f",[""])[0]
             if job not in JOBS or "/" in f or ".." in f: return self.send("bad request","text/plain",400)
