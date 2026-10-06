@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "weekly-meeting 2026-10-05",
-  "started": "2026-10-05 07:20",
+  "state": "running",
+  "note": "do/daily-pulse.md",
+  "started": "2026-10-06 07:00",
   "finished": "2026-10-05 07:21",
   "last_ok": "2026-10-05 07:21"
  },
