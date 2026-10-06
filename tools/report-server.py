@@ -2,6 +2,7 @@
 """Moon Shelter reports page. Local only (127.0.0.1:8770). Press a button, a department bot runs its on-demand recipe
 on Claude headless, and the report renders here as a web page. Nothing here is public; reports contain names."""
 import http.server, json, pathlib, subprocess, threading, datetime, html, re, urllib.parse, sys, time
+from marketing_workspace import snapshot as marketing_snapshot
 E=pathlib.Path.home()/"elysian"; HQ=E/"hq"; PORT=8770
 # button id -> (dept, recipe, bot name, where the output files land, label)
 JOBS={
@@ -105,7 +106,7 @@ def make_pdf(job,f):
     return out if out.exists() else None
 def page(body,title="Moon Shelter"):
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}{PRINT}</style></head>
-<body><header><span class="tag">Moon Shelter</span><h1>Board</h1><a href="/">board</a><a href="/graph">3D map</a></header><main>{body}</main></body></html>"""
+<body><header><span class="tag">Moon Shelter</span><h1>Board</h1><a href="/">board</a><a href="/graph">3D map</a><a href="/marketing">Marketing studio</a></header><main>{body}</main></body></html>"""
 def state_of(job):
     b=status().get(JOBS[job]["bot"],{}); running=RUNNING.get(job) and RUNNING[job].poll() is None
     if running: return "run","running since "+b.get("started","now")+" · about 5 to 10 minutes"
@@ -282,7 +283,7 @@ poll();
 def home():
     tiles="".join(tile(d) for d in DEPTS)
     body=(centre_tile()+'<div class="board">'+tiles+'</div>'
-          +'<h2 class="sec">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>'
+          +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
           +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
           +JS_HOME)
@@ -337,6 +338,11 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if not client_ok(self.client_address[0]): return self.send("forbidden","text/plain",403)
         u=urllib.parse.urlparse(self.path); q=urllib.parse.parse_qs(u.query)
+        if u.path=="/marketing":
+            return self.send((HQ/"tools/marketing.html").read_text(encoding="utf-8"))
+        if u.path=="/marketing-data":
+            jobs={k:dict(zip(("state","message"),state_of(k))) for k in ("marketing","publisher") if k in JOBS}
+            return self.send(json.dumps(marketing_snapshot(E,MAN,status(),[r for _,r in read_queue()[1]],jobs)),"application/json")
         if u.path=="/graph-status":
             return self.send(json.dumps(status()),"application/json")
         if u.path=="/graph":

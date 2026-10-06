@@ -1,3 +1,6 @@
 .DS_Store
 deps/
 private/
+
+__pycache__/
+*.pyc
