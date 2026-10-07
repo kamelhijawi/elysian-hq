@@ -3,6 +3,7 @@
 on Claude headless, and the report renders here as a web page. Nothing here is public; reports contain names."""
 import http.server, json, pathlib, subprocess, threading, datetime, html, re, urllib.parse, sys, time
 from marketing_workspace import snapshot as marketing_snapshot
+from orbit_workspace import snapshot as orbit_snapshot
 E=pathlib.Path.home()/"elysian"; HQ=E/"hq"; PORT=8770
 # button id -> (dept, recipe, bot name, where the output files land, label)
 JOBS={
@@ -106,7 +107,7 @@ def make_pdf(job,f):
     return out if out.exists() else None
 def page(body,title="Moon Shelter"):
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CSS}{PRINT}</style></head>
-<body><header><span class="tag">Moon Shelter</span><h1>Board</h1><a href="/">board</a><a href="/graph">3D map</a><a href="/marketing">Marketing studio</a></header><main>{body}</main></body></html>"""
+<body><header><span class="tag">Moon Shelter</span><h1>Board</h1><a href="/">board</a><a href="/graph">3D map</a><a href="/marketing">Marketing studio</a><a href="/orbit">Department orbit</a></header><main>{body}</main></body></html>"""
 def state_of(job):
     b=status().get(JOBS[job]["bot"],{}); running=RUNNING.get(job) and RUNNING[job].poll() is None
     if running: return "run","running since "+b.get("started","now")+" · about 5 to 10 minutes"
@@ -338,6 +339,12 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if not client_ok(self.client_address[0]): return self.send("forbidden","text/plain",403)
         u=urllib.parse.urlparse(self.path); q=urllib.parse.parse_qs(u.query)
+        if u.path=="/orbit":
+            return self.send((HQ/"tools/orbit.html").read_text(encoding="utf-8"))
+        if u.path=="/orbit-data":
+            jobs={k:dict(zip(("state","message"),state_of(k))) for k in JOBS}
+            reports={d["id"]:report_info(E/d["folder"]) for d in [CENTRE]+DEPTS}
+            return self.send(json.dumps(orbit_snapshot(E,MAN,status(),OUTPUTS,JOBS,jobs,reports)),"application/json")
         if u.path=="/marketing":
             return self.send((HQ/"tools/marketing.html").read_text(encoding="utf-8"))
         if u.path=="/marketing-data":
