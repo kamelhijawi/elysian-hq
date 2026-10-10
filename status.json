@@ -1,10 +1,10 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/daily-leads-email.md",
+  "state": "ok",
+  "note": "daily-leads-email 2026-10-10",
   "started": "2026-10-10 07:05",
-  "finished": "2026-10-09 07:11",
-  "last_ok": "2026-10-09 07:11"
+  "finished": "2026-10-10 07:05",
+  "last_ok": "2026-10-10 07:05"
  },
  "crm": {
   "state": "ok",
