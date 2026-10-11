@@ -14,9 +14,9 @@
   "last_ok": "2026-10-09 06:30"
  },
  "marketing": {
-  "state": "ok",
-  "note": "publisher 2026-10-07",
-  "started": "2026-10-07 07:30",
+  "state": "running",
+  "note": "do/market-analyst.md",
+  "started": "2026-10-11 08:00",
   "finished": "2026-10-07 07:30",
   "last_ok": "2026-10-07 07:30"
  },
