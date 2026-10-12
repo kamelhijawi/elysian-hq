@@ -1,9 +1,9 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/daily-pulse.md",
+  "state": "failed",
+  "note": "exit 1 on do/daily-pulse.md",
   "started": "2026-10-12 07:00",
-  "finished": "2026-10-11 07:05",
+  "finished": "2026-10-12 07:00",
   "last_ok": "2026-10-11 07:05"
  },
  "crm": {
