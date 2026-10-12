@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "failed",
-  "note": "exit 1 on do/agent-stats.md",
-  "started": "2026-10-12 07:10",
+  "state": "running",
+  "note": "do/weekly-meeting.md",
+  "started": "2026-10-12 07:20",
   "finished": "2026-10-12 07:10",
   "last_ok": "2026-10-11 07:05"
  },
