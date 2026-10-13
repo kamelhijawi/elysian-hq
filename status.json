@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "failed",
-  "note": "exit 1 on do/daily-leads-email.md",
-  "started": "2026-10-13 07:05",
+  "state": "running",
+  "note": "do/agent-stats.md",
+  "started": "2026-10-13 07:10",
   "finished": "2026-10-13 07:05",
   "last_ok": "2026-10-11 07:05"
  },
