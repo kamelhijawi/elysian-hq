@@ -173,7 +173,7 @@ DEPTS=MAN["departments"]; CENTRE=MAN.get("centre",{"id":"moonshelter","name":"Mo
 FOLDERS={d["id"]:E/d["folder"] for d in DEPTS}; FOLDERS[CENTRE["id"]]=E/CENTRE["folder"]
 OUTPUTS={
  "crm":[("Sweeps","live/sweeps"),("Reports","live/reports"),("Scoreboard","live/scoreboard.md"),("Rules","ref/rules.md")],
- "sales":[("Pulse","live/pulse.md"),("Agent stats","live/agent-stats.md"),("Monday briefs","live/briefs"),("Leads daily","live/leads-daily"),("Actions","live/actions.md"),("Week","live/week.md"),("Team","ref/team.md")],
+ "sales":[("Pulse","live/pulse.md"),("Untouched leads","live/leads-untouched.md"),("Cold calling kit","ref/training/cold-calling.md"),("Objection kit","ref/training/objection-handling.md"),("Agent stats","live/agent-stats.md"),("Monday briefs","live/briefs"),("Leads daily","live/leads-daily"),("Actions","live/actions.md"),("Week","live/week.md"),("Team","ref/team.md")],
  "marketing":[("Production orders","live/production"),("Posts","live/posts"),("Plans","live/plans"),("Ideas","live/ideas.md"),("Week","live/week.md"),("Publish queue","live/publish-queue.md"),("Actions","live/actions.md")],
  "voice":[("Calls","live/calls"),("Rules","ref/rules.md"),("Scripts","ref/scripts.md")],
  "moonshelter":[("Digest","live/today.md"),("Decisions","live/decisions.md"),("Inbox","live/inbox"),("PDFs","live/pdf")],
