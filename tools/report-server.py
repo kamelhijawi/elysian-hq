@@ -83,6 +83,8 @@ table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:14px}th,td
 a.chip+a.chip{margin-left:-2px}.dec{color:var(--gold);font-weight:600}.dec.none{color:var(--mute);font-weight:400}
 .jobs .job{display:inline-flex;flex-direction:column;margin-right:10px}.jobs button{margin-top:6px;padding:7px 11px;font-size:13px}.jobs .state{font-size:11px}
 h2.sec{margin:28px 0 6px;font-size:17px}
+.dq{border-top:1px solid var(--line);padding:10px 0}.dq .dt{font-size:14px;margin-bottom:4px}.dq input,.dq select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
+button.opt{background:transparent;color:var(--ink);border:1px solid var(--gold);padding:6px 10px;font-size:13px;margin-top:0}button.opt:hover{background:var(--gold);color:#17141f}.dq .row button.ghost{margin-top:0;padding:6px 10px;font-size:13px}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -151,7 +153,7 @@ def set_status(pid,status,url=""):
     return False
 def queue_html():
     _,rows=read_queue(); live=[r for _,r in rows if r["status"] in ("READY","APPROVED")]
-    done=[r for _,r in rows if r["status"] in ("POSTED","REJECTED")][-5:]
+    done=[r for _,r in rows if r["status"] in ("POSTED","REJECTED","EXPIRED")][-6:]
     if not rows: return '<p style="color:var(--mute)">No posts drafted yet. Press "Generate linkedin posts" above.</p>'
     out=[]
     for r in live:
@@ -272,6 +274,74 @@ def centre_tile():
 <p class="head">{html.escape(dg["line"]) or '<span class="dim">no digest yet</span>'}</p>
 <div class="meta">{flink(dept,"live/today.md","full digest","chip strong")}{flink(dept,"live/decisions.md",f"{n} open decision{'s' if n!=1 else ''}","chip strong")}{outputs_html(dept)}</div>
 </section>'''
+# ---------- decisions panel: the digest's open questions, answerable with one click ----------
+DECISIONS=FOLDERS[CENTRE["id"]]/"live/decisions.md"; TODAY=FOLDERS[CENTRE["id"]]/"live/today.md"
+def digest_decisions():
+    """Parse the newest digest block's '### Decisions for Moon Shelter' into items: n, title, options, to, notes."""
+    if not TODAY.exists(): return "",[]
+    t=TODAY.read_text(errors="ignore"); m=re.search(r"^## (\d{4}-\d{2}-\d{2})",t,re.M)
+    if not m: return "",[]
+    date=m.group(1); blk=t[m.start():]; nxt=re.search(r"^## \d{4}-\d{2}-\d{2}",blk[10:],re.M)
+    if nxt: blk=blk[:nxt.start()+10]
+    d=re.search(r"^### Decisions for Moon Shelter.*?$",blk,re.M)
+    if not d: return date,[]
+    sec=blk[d.end():]; e=re.search(r"^### ",sec,re.M); sec=sec[:e.start()] if e else sec
+    items=[]; cur=None
+    for l in sec.splitlines():
+        mm=re.match(r"^(\d+)\.\s+(.*)$",l)
+        if mm:
+            cur={"n":int(mm.group(1)),"raw":mm.group(2),"bullets":[]}; items.append(cur); continue
+        if cur and re.match(r"^\s+-\s+",l): cur["bullets"].append(re.sub(r"^\s+-\s+","",l))
+    out=[]
+    for it in items:
+        tm=re.match(r"^\*\*(.+?)\*\*(.*)$",it["raw"]); title=(tm.group(1) if tm else it["raw"]).strip(); rest=(tm.group(2) if tm else "").strip()
+        opts=[]; notes=[]
+        for b in it["bullets"]:
+            om=re.match(r"^Options?:\s*(.+?)\.?\s*$",b,re.I)
+            if om: opts=[o.strip() for o in re.split(r"\s*/\s*",om.group(1)) if o.strip()]; continue
+            lm=re.match(r"^\(([a-z])\)\s*(.+)$",b)
+            if lm: opts.append(f"({lm.group(1)}) {lm.group(2).rstrip('.')}"); continue
+            notes.append(re.sub(r"\*\*|`","",b))
+        txt=" ".join([it["raw"]]+it["bullets"]).lower()
+        to=[d for d in ("crm","sales","marketing") if d in txt]
+        if not opts: opts=["yes","no"]
+        out.append({"n":it["n"],"title":re.sub(r"`","",title).rstrip(":"),"rest":re.sub(r"\*\*|`","",rest),"options":opts[:6],"to":",".join(to) if 0<len(to)<3 else "all","notes":notes[:2]})
+    return date,out
+def answered(date):
+    """Decision lines already written for this digest: '(digest <date> #n)' markers."""
+    if not DECISIONS.exists(): return set()
+    return {int(x) for x in re.findall(r"\(digest "+re.escape(date)+r" #(\d+)\)",DECISIONS.read_text(errors="ignore"))}
+def write_decision(to,text,marker=""):
+    now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"); text=re.sub(r"[\r\n|]+"," ",text).strip()
+    if not text: return False
+    line=f"{now} | to: {to} | {text}{(' '+marker) if marker else ''} | NEW\n"
+    t=DECISIONS.read_text(errors="ignore") if DECISIONS.exists() else "# live — Decisions from Moon Shelter\n---\n"
+    t=t.replace("---\n","---\n"+line,1) if "---\n" in t else t+line
+    DECISIONS.write_text(t)
+    subprocess.Popen(["/bin/zsh","-c","git add -A && git commit -q -m 'decisions: Kamel answered from the board %s'"%now],cwd=FOLDERS[CENTRE["id"]],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    return True
+def decisions_html():
+    date,items=digest_decisions(); done=answered(date); open_items=[i for i in items if i["n"] not in done]
+    head='<section class="tile centre" id="decisions"><div class="th"><h2>Decisions owed</h2><span class="next">from the digest %s · %d open · answers go straight into decisions.md</span></div>'%(html.escape(date),len(open_items))
+    if not items: return head+'<p class="dim">No decisions section in the latest digest.</p></section>'
+    rows=[]
+    for i in open_items:
+        btns="".join('<button class="opt" onclick="decide(%d,this.dataset.a)" data-a="%s">%s</button>'%(i["n"],html.escape(o,quote=True),html.escape(o)) for o in i["options"])
+        notes="".join('<div class="dim" style="font-size:12px">%s</div>'%html.escape(n[:220]) for n in i["notes"])
+        rows.append('''<div class="dq" data-n="%d" data-title="%s" data-to="%s"><div class="dt"><b>%d.</b> %s <span class="dim">%s</span></div>%s
+<div class="row">%s<input type="text" placeholder="or type the answer" onkeydown="if(event.key==='Enter')decide(%d,this.value)"><button class="ghost" onclick="decide(%d,this.previousElementSibling.value)">Answer</button><span class="dim">to: %s</span></div></div>'''%(
+            i["n"],html.escape(i["title"],quote=True),html.escape(i["to"],quote=True),i["n"],html.escape(i["title"]),html.escape(i["rest"][:160]),notes,btns,i["n"],i["n"],html.escape(i["to"])))
+    if not open_items: rows.append('<p class="dim">All answered. The departments read your answers on their next run.</p>')
+    rows.append('''<div class="dq new"><div class="dt"><b>New decision</b> <span class="dim">anything not asked above, e.g. name the videographer</span></div>
+<div class="row"><select id="nd-to"><option value="all">to: all</option><option value="crm">to: crm</option><option value="sales">to: sales</option><option value="marketing">to: marketing</option><option value="voice">to: voice</option></select><input type="text" id="nd-text" placeholder="the decision, one line" style="flex:1;min-width:240px"><button onclick="newDecision()">Write it</button></div></div>''')
+    return head+"".join(rows)+"</section>"
+JS_DEC="""<script>
+async function decide(n,a){a=(a||'').trim();if(!a)return;const el=document.querySelector('.dq[data-n="'+n+'"]');const title=el.dataset.title,to=el.dataset.to;
+if(!confirm('Write to decisions.md:\\n\\nto: '+to+'\\n'+title+' → '+a))return;
+const r=await fetch('/decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({n:n,title:title,to:to,answer:a})});const j=await r.json();if(!j.ok){alert(j.why||'failed');return}location.reload()}
+async function newDecision(){const to=document.getElementById('nd-to').value,t=document.getElementById('nd-text').value.trim();if(!t)return;if(!confirm('Write to decisions.md:\\n\\nto: '+to+'\\n'+t))return;
+const r=await fetch('/decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:to,text:t})});const j=await r.json();if(!j.ok){alert(j.why||'failed');return}location.reload()}
+</script>"""
 JS_HOME="""<script>
 async function act(pid,what){if(what==='reject'&&!confirm('Reject '+pid+'?'))return;let w=null;if(what==='approve')w=window.open('about:blank','_blank');
 const r=await fetch('/queue/'+what+'/'+pid,{method:'POST'});const j=await r.json();if(!j.ok){if(w)w.close();alert(j.why||'failed');return}if(w){if(j.url)w.location=j.url;else w.close()}location.reload()}
@@ -283,11 +353,11 @@ poll();
 </script>"""
 def home():
     tiles="".join(tile(d) for d in DEPTS)
-    body=(centre_tile()+'<div class="board">'+tiles+'</div>'
+    body=(centre_tile()+decisions_html()+'<div class="board">'+tiles+'</div>'
           +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
           +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
-          +JS_HOME)
+          +JS_HOME+JS_DEC)
     return page(body)
 def ls_page(dept,rel):
     base=FOLDERS[dept]; p=safe_path(dept,rel)
@@ -401,6 +471,16 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self.send("not found","text/plain",404)
     def do_POST(self):
         if not client_ok(self.client_address[0]): return self.send("forbidden","text/plain",403)
+        if self.path=="/decide":
+            n=int(self.headers.get("Content-Length") or 0); body=json.loads(self.rfile.read(n).decode() or "{}") if n else {}
+            to=str(body.get("to","all")).strip().lower()
+            if not re.match(r"^(all|crm|sales|marketing|voice)(,(crm|sales|marketing|voice))*$",to): return self.send(json.dumps({"ok":False,"why":"bad department"}),"application/json",400)
+            if "n" in body:
+                date,items=digest_decisions(); it=next((i for i in items if i["n"]==int(body["n"])),None)
+                if not it: return self.send(json.dumps({"ok":False,"why":"unknown item"}),"application/json",400)
+                ok=write_decision(to,f"{it['title']}: {str(body.get('answer',''))[:500]}",f"(digest {date} #{it['n']})")
+            else: ok=write_decision(to,str(body.get("text",""))[:600],"(from the board)")
+            return self.send(json.dumps({"ok":ok,"why":"" if ok else "empty"}),"application/json")
         if self.path.startswith("/queue/"):
             parts=self.path.split("/"); what=parts[2] if len(parts)>2 else ""; pid=parts[3] if len(parts)>3 else ""
             if not re.match(r"^P-\d+$",pid) or what not in ("approve","posted","reject"): return self.send(json.dumps({"ok":False,"why":"bad request"}),"application/json",400)
