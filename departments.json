@@ -53,7 +53,13 @@
     "Grep",
     "mcp__claude_ai_Zapier__inspect_zapier_actions",
     "mcp__claude_ai_Zapier__execute_zapier_read_action",
-    "mcp__claude_ai_Zapier__list_zapier_connections"
+    "mcp__claude_ai_Zapier__list_zapier_connections",
+    "mcp__claude_ai_Salesforce_Read_Only__soqlQuery",
+    "mcp__claude_ai_Salesforce_Read_Only__getObjectSchema",
+    "mcp__claude_ai_Salesforce_Read_Only__find",
+    "mcp__claude_ai_Salesforce_Read_Only__getRelatedRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__listRecentSobjectRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__getUserInfo"
    ],
    "schedule": [
     {
@@ -87,7 +93,13 @@
     "mcp__claude_ai_Zapier__inspect_zapier_actions",
     "mcp__claude_ai_Zapier__execute_zapier_read_action",
     "mcp__claude_ai_Zapier__list_zapier_connections",
-    "mcp__claude_ai_Zapier__execute_zapier_write_action"
+    "mcp__claude_ai_Zapier__execute_zapier_write_action",
+    "mcp__claude_ai_Salesforce_Read_Only__soqlQuery",
+    "mcp__claude_ai_Salesforce_Read_Only__getObjectSchema",
+    "mcp__claude_ai_Salesforce_Read_Only__find",
+    "mcp__claude_ai_Salesforce_Read_Only__getRelatedRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__listRecentSobjectRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__getUserInfo"
    ],
    "schedule": [
     {
@@ -159,7 +171,13 @@
     "Write",
     "mcp__claude_ai_Zapier__execute_zapier_read_action",
     "mcp__claude_ai_Zapier__inspect_zapier_actions",
-    "mcp__claude_ai_Zapier__list_zapier_connections"
+    "mcp__claude_ai_Zapier__list_zapier_connections",
+    "mcp__claude_ai_Salesforce_Read_Only__soqlQuery",
+    "mcp__claude_ai_Salesforce_Read_Only__getObjectSchema",
+    "mcp__claude_ai_Salesforce_Read_Only__find",
+    "mcp__claude_ai_Salesforce_Read_Only__getRelatedRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__listRecentSobjectRecords",
+    "mcp__claude_ai_Salesforce_Read_Only__getUserInfo"
    ],
    "schedule": [
     {
