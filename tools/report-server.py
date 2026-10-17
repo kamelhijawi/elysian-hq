@@ -117,6 +117,9 @@ def state_of(job):
     if b.get("state")=="failed": return "bad","failed "+b.get("finished","")+" · "+b.get("note","")
     return "ok","last run "+b.get("finished","")
 QUEUE=E/"marketing-brain/live/publish-queue.md"; POSTS=E/"marketing-brain/live/posts"
+# Kamel, 2026-10-17: the board is read-only. No run buttons, no decision answers, no Approve; every POST is refused.
+# Decisions are given in chat and written to moonshelter/live/decisions.md; LinkedIn posts go out only on "post it" in a live session.
+READ_ONLY=True
 QCOLS=["date","id","idea","channel","status","file","approved","posted","url"]
 def read_queue():
     rows=[]
@@ -173,12 +176,13 @@ def start_post(pid):
 def queue_html():
     _,rows=read_queue(); live=[r for _,r in rows if r["status"] in ("READY","APPROVED")]
     done=[r for _,r in rows if r["status"] in ("POSTED","REJECTED","EXPIRED")][-6:]
-    if not rows: return '<p style="color:var(--mute)">No posts drafted yet. Press "Generate linkedin posts" above.</p>'
+    if not rows: return '<p style="color:var(--mute)">No posts drafted yet.</p>'
     out=[]
     for r in live:
         txt=post_text(r["id"]); pid=r["id"]; appr=(" · approved "+r["approved"]) if r["approved"] else ""
         p=POSTING.get(pid,{})
-        if r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and post</button>'%pid
+        if READ_ONLY: btn='<span class="state">%s · say "post it" in chat to publish</span>'%html.escape(r["status"].lower())
+        elif r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and post</button>'%pid
         elif p.get("state")=="run": btn='<span class="state run" data-posting="%s">%s (since %s)</span>'%(pid,html.escape(p["msg"]),p.get("since",""))
         else:
             why=('<span class="state bad">%s</span> '%html.escape(p["msg"])) if p.get("state")=="fail" else ""
@@ -186,7 +190,7 @@ def queue_html():
         body=html.escape(txt) if txt else "(post text missing: "+html.escape(r["file"])+")"
         car=POSTS/f"{pid}-carousel.pdf"
         if car.exists(): body+='\n\n[ carousel: %s, attach it as a document when you post → <a href="/post-file?f=%s-carousel.pdf" style="color:var(--gold)">open PDF</a> ]'%(car.name,pid)
-        out.append('<div class="card post" data-pid="%s"><h2>%s · %s</h2><div class="what">%s · %s%s</div><pre class="posttext">%s</pre><div class="row">%s <button class="ghost" onclick="act(\'%s\',\'reject\')">Reject</button> <span class="state">%d characters</span></div></div>'%(pid,pid,html.escape(r["idea"]),html.escape(r["channel"]),r["status"],html.escape(appr),body,btn,pid,len(txt)))
+        out.append('<div class="card post" data-pid="%s"><h2>%s · %s</h2><div class="what">%s · %s%s</div><pre class="posttext">%s</pre><div class="row">%s %s<span class="state">%d characters</span></div></div>'%(pid,pid,html.escape(r["idea"]),html.escape(r["channel"]),r["status"],html.escape(appr),body,btn,"" if READ_ONLY else '<button class="ghost" onclick="act(\'%s\',\'reject\')">Reject</button> '%pid,len(txt)))
     if not live: out.append('<p style="color:var(--mute)">Nothing waiting for you.</p>')
     if done: out.append('<p style="color:var(--mute);font-size:13px">Recent: '+" · ".join(html.escape(f'{r["id"]} {r["status"].lower()} {r["posted"] or ""}') for r in done)+'</p>')
     return "".join(out)
@@ -272,6 +276,7 @@ def jobs_html(dept):
     for k,j in JOBS.items():
         if j["dept"]!=dept: continue
         cls,txt=state_of(k)
+        if READ_ONLY: out.append('<div class="job" data-job="%s"><span class="dim">%s</span><div class="state %s">%s</div></div>'%(k,html.escape(j["label"]),cls,html.escape(txt))); continue
         out.append('<div class="job" data-job="%s"><button onclick="run(\'%s\')" %s>Generate %s</button><div class="state %s">%s</div></div>'%(k,k,"disabled" if cls=="run" else "",html.escape(j["label"].lower()),cls,html.escape(txt)))
     return "".join(out)
 def tile(d):
@@ -345,17 +350,20 @@ def write_decision(to,text,marker=""):
     return True
 def decisions_html():
     date,items=digest_decisions(); done=answered(date); open_items=[i for i in items if i["n"] not in done]
-    head='<section class="tile centre" id="decisions"><div class="th"><h2>Decisions owed</h2><span class="next">from the digest %s · %d open · answers go straight into decisions.md</span></div>'%(html.escape(date),len(open_items))
+    head='<section class="tile centre" id="decisions"><div class="th"><h2>Decisions owed</h2><span class="next">from the digest %s · %d open · %s</span></div>'%(html.escape(date),len(open_items),"answer in chat, Claude writes it to decisions.md" if READ_ONLY else "answers go straight into decisions.md")
     if not items: return head+'<p class="dim">No decisions section in the latest digest.</p></section>'
     rows=[]
     for i in open_items:
         btns="".join('<button class="opt" onclick="decide(%d,this.dataset.a)" data-a="%s">%s</button>'%(i["n"],html.escape(o,quote=True),html.escape(o)) for o in i["options"])
         notes="".join('<div class="dim" style="font-size:12px">%s</div>'%html.escape(n[:220]) for n in i["notes"])
+        if READ_ONLY:
+            rows.append('<div class="dq" data-n="%d"><div class="dt"><b>%d.</b> %s <span class="dim">%s</span></div>%s<div class="row"><span class="dim">options: %s · to: %s</span></div></div>'%(i["n"],i["n"],html.escape(i["title"]),html.escape(i["rest"][:160]),notes,html.escape(" / ".join(i["options"])),html.escape(i["to"])))
+            continue
         rows.append('''<div class="dq" data-n="%d" data-title="%s" data-to="%s"><div class="dt"><b>%d.</b> %s <span class="dim">%s</span></div>%s
 <div class="row">%s<input type="text" placeholder="or type the answer" onkeydown="if(event.key==='Enter')decide(%d,this.value)"><button class="ghost" onclick="decide(%d,this.previousElementSibling.value)">Answer</button><span class="dim">to: %s</span></div></div>'''%(
             i["n"],html.escape(i["title"],quote=True),html.escape(i["to"],quote=True),i["n"],html.escape(i["title"]),html.escape(i["rest"][:160]),notes,btns,i["n"],i["n"],html.escape(i["to"])))
     if not open_items: rows.append('<p class="dim">All answered. The departments read your answers on their next run.</p>')
-    rows.append('''<div class="dq new"><div class="dt"><b>New decision</b> <span class="dim">anything not asked above, e.g. name the videographer</span></div>
+    if not READ_ONLY: rows.append('''<div class="dq new"><div class="dt"><b>New decision</b> <span class="dim">anything not asked above, e.g. name the videographer</span></div>
 <div class="row"><select id="nd-to"><option value="all">to: all</option><option value="crm">to: crm</option><option value="sales">to: sales</option><option value="marketing">to: marketing</option><option value="voice">to: voice</option></select><input type="text" id="nd-text" placeholder="the decision, one line" style="flex:1;min-width:240px"><button onclick="newDecision()">Write it</button></div></div>''')
     return head+"".join(rows)+"</section>"
 JS_DEC="""<script>
@@ -500,6 +508,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self.send("not found","text/plain",404)
     def do_POST(self):
         if not client_ok(self.client_address[0]): return self.send("forbidden","text/plain",403)
+        if READ_ONLY: return self.send(json.dumps({"ok":False,"why":"the board is read-only (Kamel, 2026-10-17): decide and post in chat"}),"application/json",403)
         if self.path=="/decide":
             n=int(self.headers.get("Content-Length") or 0); body=json.loads(self.rfile.read(n).decode() or "{}") if n else {}
             to=str(body.get("to","all")).strip().lower()
