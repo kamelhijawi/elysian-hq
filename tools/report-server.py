@@ -151,6 +151,25 @@ def set_status(pid,status,url=""):
             subprocess.Popen(["/bin/zsh","-c",f"git add -A && git commit -q -m 'publisher: {pid} {status} by Kamel {now}'"],cwd=E/"marketing-brain",stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return True
     return False
+# Approve → post (decision 2026-10-16): the Approve click is Kamel's explicit yes; the board then runs post-linkedin.sh,
+# a Claude headless run with --chrome that posts from HIS LinkedIn in his Chrome and reports "POSTED <url>" or "FAILED <why>".
+POSTING={}   # pid -> {"state":"run"|"ok"|"fail","msg":str,"since":str}
+def _post_worker(pid):
+    log=open(pathlib.Path.home()/"Library/Logs/elysian-marketing.log","a")
+    try:
+        r=subprocess.run(["/bin/zsh",str(HQ/"tools/post-linkedin.sh"),pid],capture_output=True,text=True,timeout=600,stdin=subprocess.DEVNULL)
+        last=(r.stdout.strip().splitlines() or ["FAILED no output"])[-1]
+    except subprocess.TimeoutExpired: last="FAILED timed out after 10 minutes"
+    except Exception as e: last=f"FAILED {e}"
+    log.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M} post-linkedin {pid}: {last}\n"); log.close()
+    if last.startswith("POSTED "):
+        set_status(pid,"POSTED",last[7:].strip()[:300]); POSTING[pid]={"state":"ok","msg":last}
+    else: POSTING[pid]={"state":"fail","msg":last[:300]}
+def start_post(pid):
+    with LOCK:
+        if POSTING.get(pid,{}).get("state")=="run": return False
+        POSTING[pid]={"state":"run","msg":"posting from your LinkedIn through Chrome…","since":datetime.datetime.now().strftime("%H:%M")}
+    threading.Thread(target=_post_worker,args=(pid,),daemon=True).start(); return True
 def queue_html():
     _,rows=read_queue(); live=[r for _,r in rows if r["status"] in ("READY","APPROVED")]
     done=[r for _,r in rows if r["status"] in ("POSTED","REJECTED","EXPIRED")][-6:]
@@ -158,8 +177,12 @@ def queue_html():
     out=[]
     for r in live:
         txt=post_text(r["id"]); pid=r["id"]; appr=(" · approved "+r["approved"]) if r["approved"] else ""
-        if r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and open LinkedIn</button>'%pid
-        else: btn='<button onclick="act(\'%s\',\'approve\')">Open LinkedIn again</button> <button onclick="posted(\'%s\')">Mark posted</button>'%(pid,pid)
+        p=POSTING.get(pid,{})
+        if r["status"]=="READY": btn='<button onclick="act(\'%s\',\'approve\')">Approve and post</button>'%pid
+        elif p.get("state")=="run": btn='<span class="state run" data-posting="%s">%s (since %s)</span>'%(pid,html.escape(p["msg"]),p.get("since",""))
+        else:
+            why=('<span class="state bad">%s</span> '%html.escape(p["msg"])) if p.get("state")=="fail" else ""
+            btn=why+'<button onclick="act(\'%s\',\'post\')">Post again through Chrome</button> <button class="ghost" onclick="act(\'%s\',\'open\')">Open my composer instead</button> <button class="ghost" onclick="posted(\'%s\')">Mark posted</button>'%(pid,pid,pid)
         body=html.escape(txt) if txt else "(post text missing: "+html.escape(r["file"])+")"
         car=POSTS/f"{pid}-carousel.pdf"
         if car.exists(): body+='\n\n[ carousel: %s, attach it as a document when you post → <a href="/post-file?f=%s-carousel.pdf" style="color:var(--gold)">open PDF</a> ]'%(car.name,pid)
@@ -343,8 +366,13 @@ async function newDecision(){const to=document.getElementById('nd-to').value,t=d
 const r=await fetch('/decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:to,text:t})});const j=await r.json();if(!j.ok){alert(j.why||'failed');return}location.reload()}
 </script>"""
 JS_HOME="""<script>
-async function act(pid,what){if(what==='reject'&&!confirm('Reject '+pid+'?'))return;let w=null;if(what==='approve')w=window.open('about:blank','_blank');
+async function act(pid,what){if(what==='reject'&&!confirm('Reject '+pid+'?'))return;
+if(what==='approve'&&!confirm('Approve '+pid+' and post it now from your LinkedIn (through Chrome on the Mac)?'))return;
+if(what==='post'&&!confirm('Post '+pid+' again through Chrome? Check LinkedIn first: a duplicate cannot be undone here.'))return;
+let w=null;if(what==='open')w=window.open('about:blank','_blank');
 const r=await fetch('/queue/'+what+'/'+pid,{method:'POST'});const j=await r.json();if(!j.ok){if(w)w.close();alert(j.why||'failed');return}if(w){if(j.url)w.location=j.url;else w.close()}location.reload()}
+async function pollPosting(){if(!document.querySelector('[data-posting]'))return;const s=await (await fetch('/queue-status')).json();let any=false;for(const k in s){if(s[k].state==='run')any=true}if(any)setTimeout(pollPosting,6000);else location.reload()}
+pollPosting();
 async function posted(pid){const u=prompt('Posted. Paste the post URL if you have it (optional):','')||'';await fetch('/queue/posted/'+pid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});location.reload()}
 async function run(k){const c=document.querySelector('[data-job="'+k+'"]');const b=c.querySelector('button');b.disabled=true;c.querySelector('.state').textContent='starting…';await fetch('/run/'+k,{method:'POST'});poll()}
 async function poll(){const s=await (await fetch('/status')).json();let any=false;for(const k in s){const c=document.querySelector('[data-job="'+k+'"]');if(!c)continue;const st=c.querySelector('.state');st.className='state '+s[k][0];st.textContent=s[k][1];c.querySelector('button').disabled=s[k][0]==='run';if(s[k][0]==='run')any=true}
@@ -354,9 +382,9 @@ poll();
 def home():
     tiles="".join(tile(d) for d in DEPTS)
     body=(centre_tile()+decisions_html()+'<div class="board">'+tiles+'</div>'
-          +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out on its own. Approve opens your LinkedIn composer in a new tab with the text filled in, on this Mac or on the iPad; you press Post there, then mark it posted here.</p>'
+          +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out without your click. Approve posts it from your own LinkedIn through Chrome on this Mac (Chrome must be open and signed in) and records the URL here. If that fails, the card offers your composer prefilled as before.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
-          +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
+          +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself; Approve on a LinkedIn post is the one click that posts, from your own account. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
           +JS_HOME+JS_DEC)
     return page(body)
 def ls_page(dept,rel):
@@ -427,6 +455,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self.send(g.read_text(errors="ignore")) if g.exists() else self.send("graph not built","text/plain",404)
         if u.path=="/": return self.send(home())
         if u.path=="/status": return self.send(json.dumps({k:state_of(k) for k in JOBS}),"application/json")
+        if u.path=="/queue-status": return self.send(json.dumps(POSTING),"application/json")
         if u.path=="/file":
             dept=q.get("dept",[""])[0]; rel=q.get("path",[""])[0]
             if dept not in FOLDERS: return self.send("bad request","text/plain",400)
@@ -483,15 +512,23 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self.send(json.dumps({"ok":ok,"why":"" if ok else "empty"}),"application/json")
         if self.path.startswith("/queue/"):
             parts=self.path.split("/"); what=parts[2] if len(parts)>2 else ""; pid=parts[3] if len(parts)>3 else ""
-            if not re.match(r"^P-\d+$",pid) or what not in ("approve","posted","reject"): return self.send(json.dumps({"ok":False,"why":"bad request"}),"application/json",400)
+            if not re.match(r"^P-\d+$",pid) or what not in ("approve","post","open","posted","reject"): return self.send(json.dumps({"ok":False,"why":"bad request"}),"application/json",400)
             n=int(self.headers.get("Content-Length") or 0); body=json.loads(self.rfile.read(n).decode() or "{}") if n else {}
             url=""
-            if what=="approve":
+            if what in ("approve","post","open"):
                 txt=post_text(pid)
                 if not txt: return self.send(json.dumps({"ok":False,"why":"post text missing"}),"application/json")
-                ok=set_status(pid,"APPROVED")
-                # Kamel's explicit yes: the page opens HIS LinkedIn composer with the text in a new tab, on the Mac or the iPad, and he presses Post. This server never posts.
-                url="https://www.linkedin.com/feed/?shareActive=true&text="+urllib.parse.quote(txt)
+                row=next((r for _,r in read_queue()[1] if r["id"]==pid),None)
+                if not row: return self.send(json.dumps({"ok":False,"why":"id not in queue"}),"application/json")
+                if what=="approve":
+                    # Kamel's explicit yes for this one post (decision 2026-10-16): mark APPROVED, then post it from HIS LinkedIn through Chrome.
+                    ok=set_status(pid,"APPROVED") and start_post(pid)
+                elif what=="post":
+                    if row["status"]!="APPROVED": return self.send(json.dumps({"ok":False,"why":"only an APPROVED post can be posted"}),"application/json")
+                    ok=start_post(pid)
+                else:
+                    # fallback: open his composer prefilled in a new tab (Mac or iPad); he presses Post and marks it posted here.
+                    ok=True; url="https://www.linkedin.com/feed/?shareActive=true&text="+urllib.parse.quote(txt)
             elif what=="posted": ok=set_status(pid,"POSTED",str(body.get("url",""))[:300])
             else: ok=set_status(pid,"REJECTED")
             return self.send(json.dumps({"ok":ok,"url":url,"why":"" if ok else "id not in queue"}),"application/json")
