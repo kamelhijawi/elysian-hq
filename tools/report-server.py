@@ -10,6 +10,7 @@ JOBS={
  "crm":  {"dept":"crm","recipe":"do/report-page.md","bot":"crm-report","dir":E/"crm/live/reports","label":"CRM report","what":"Leads 24h and 7d by source and segment, pool, opportunities, calls, fixes for Jilan"},
  "sales":{"dept":"sales","recipe":"do/daily-pulse.md","bot":"sales-report","dir":E/"brain/live","pattern":"pulse.md","label":"Sales pulse","what":"Yesterday's leads, touches, opps, stage moves (writes brain/live/pulse.md)"},
  "marketing":{"dept":"marketing","recipe":"do/production-director.md","bot":"marketing-report","dir":E/"marketing-brain/live/production","label":"Production orders","what":"Videographer work orders and the social media buyer plan"},
+ "nudge":{"dept":"sales","recipe":"do/agent-nudge.md","bot":"sales-nudge","dir":E/"brain/live/nudges","label":"Agent nudge","what":"Untouched enquiries per agent from Salesforce; emails agents only under the standing yes, otherwise a test summary to Kamel"},
  "publisher":{"dept":"marketing","recipe":"do/publisher.md","bot":"marketing-publisher","dir":E/"marketing-brain/live/posts","pattern":"P-*.md","label":"LinkedIn posts","what":"Drafts finished LinkedIn posts from selected ideas into the publish queue below"},
  "voice":{"dept":"voice","recipe":"do/call-queue.md","bot":"voice-report","dir":E/"voice/live/calls","label":"Call queue","what":"Today's call list and briefs (shadow mode until the voice key and standing yes exist)"},
 }
@@ -200,7 +201,7 @@ DEPTS=MAN["departments"]; CENTRE=MAN.get("centre",{"id":"moonshelter","name":"Mo
 FOLDERS={d["id"]:E/d["folder"] for d in DEPTS}; FOLDERS[CENTRE["id"]]=E/CENTRE["folder"]
 OUTPUTS={
  "crm":[("Sweeps","live/sweeps"),("Reports","live/reports"),("Scoreboard","live/scoreboard.md"),("Rules","ref/rules.md")],
- "sales":[("Pulse","live/pulse.md"),("Untouched leads","live/leads-untouched.md"),("Cold calling kit","ref/training/cold-calling.md"),("Objection kit","ref/training/objection-handling.md"),("Agent stats","live/agent-stats.md"),("Monday briefs","live/briefs"),("Leads daily","live/leads-daily"),("Actions","live/actions.md"),("Week","live/week.md"),("Team","ref/team.md")],
+ "sales":[("Nudges","live/nudges"),("Pulse","live/pulse.md"),("Untouched leads","live/leads-untouched.md"),("Cold calling kit","ref/training/cold-calling.md"),("Objection kit","ref/training/objection-handling.md"),("Agent stats","live/agent-stats.md"),("Monday briefs","live/briefs"),("Leads daily","live/leads-daily"),("Actions","live/actions.md"),("Week","live/week.md"),("Team","ref/team.md")],
  "marketing":[("Production orders","live/production"),("Posts","live/posts"),("Plans","live/plans"),("Ideas","live/ideas.md"),("Week","live/week.md"),("Publish queue","live/publish-queue.md"),("Actions","live/actions.md")],
  "voice":[("Calls","live/calls"),("Rules","ref/rules.md"),("Scripts","ref/scripts.md")],
  "moonshelter":[("Digest","live/today.md"),("Decisions","live/decisions.md"),("Inbox","live/inbox"),("PDFs","live/pdf")],
