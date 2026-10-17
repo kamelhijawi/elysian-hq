@@ -54,5 +54,10 @@
   "started": "2026-10-03 16:19",
   "finished": "2026-10-03 16:21",
   "last_ok": "2026-10-03 16:21"
+ },
+ "moonshelter-digest": {
+  "state": "running",
+  "note": "do/digest.md",
+  "started": "2026-10-17 15:37"
  }
 }
