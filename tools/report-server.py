@@ -86,6 +86,15 @@ a.chip+a.chip{margin-left:-2px}.dec{color:var(--gold);font-weight:600}.dec.none{
 h2.sec{margin:28px 0 6px;font-size:17px}
 .dq{border-top:1px solid var(--line);padding:10px 0}.dq .dt{font-size:14px;margin-bottom:4px}.dq input,.dq select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
 button.opt{background:transparent;color:var(--ink);border:1px solid var(--gold);padding:6px 10px;font-size:13px;margin-top:0}button.opt:hover{background:var(--gold);color:#17141f}.dq .row button.ghost{margin-top:0;padding:6px 10px;font-size:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 10px}.filters button.f{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;margin:0}.filters button.f.on{border-color:var(--gold);color:var(--gold)}
+details.team{border-top:1px solid var(--line);padding:8px 0}details.team>summary{cursor:pointer;font-size:15px;list-style:none}details.team>summary::before{content:"▸ ";color:var(--mute)}details.team[open]>summary::before{content:"▾ "}
+details.agent{margin:6px 0 6px 18px;border-left:2px solid var(--line);padding-left:10px}details.agent>summary{cursor:pointer;font-size:14px;list-style:none}details.agent>summary::before{content:"▸ ";color:var(--mute)}details.agent[open]>summary::before{content:"▾ "}
+.c{display:inline-block;min-width:22px;text-align:center;font-size:11px;border-radius:999px;padding:1px 6px;margin-left:2px;border:1px solid var(--line);color:var(--mute)}
+.c.nu,.tag.nu{color:#f0a06c;border-color:#f0a06c}.c.pos,.tag.pos{color:var(--ok);border-color:var(--ok)}.c.neg,.tag.neg{color:var(--bad);border-color:var(--bad)}.c.mtg,.tag.mtg{color:var(--gold);border-color:var(--gold)}.c.pot,.tag.pot{color:var(--run);border-color:var(--run)}
+.filters .c{min-width:0;width:8px;height:8px;padding:0;border-width:4px;margin-right:6px;vertical-align:middle}
+.tag{display:inline-block;font-size:11px;border:1px solid;border-radius:999px;padding:1px 7px;margin:1px 2px 1px 0;white-space:nowrap}
+table.leads{margin:6px 0 10px;font-size:13px}table.leads td{vertical-align:top}table.leads td.cm{max-width:360px;color:var(--ink)}table.leads .dim{font-size:11px}
+.hide{display:none}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -374,6 +383,46 @@ const r=await fetch('/decide',{method:'POST',headers:{'Content-Type':'applicatio
 async function newDecision(){const to=document.getElementById('nd-to').value,t=document.getElementById('nd-text').value.trim();if(!t)return;if(!confirm('Write to decisions.md:\\n\\nto: '+to+'\\n'+t))return;
 const r=await fetch('/decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:to,text:t})});const j=await r.json();if(!j.ok){alert(j.why||'failed');return}location.reload()}
 </script>"""
+# ---------- Teams → agents → leads, collapsible layers, from the hourly leads pulse ----------
+LEADVIEW=E/"moonshelter/live/leads/latest.json"
+TAGC={"NOT_UPDATED":"nu","POSITIVE":"pos","NEGATIVE":"neg","MEETING":"mtg","POTENTIAL":"pot"}
+TAGL={"NOT_UPDATED":"not updated","POSITIVE":"positive","NEGATIVE":"negative","MEETING":"meeting","POTENTIAL":"potential"}
+def cnt(c):
+    return " ".join(f'<span class="c {TAGC[k]}" title="{TAGL[k]}">{c.get(k,0)}</span>' for k in ("NOT_UPDATED","POSITIVE","NEGATIVE","MEETING","POTENTIAL"))
+def teams_html():
+    if not LEADVIEW.exists(): return '<section class="tile" id="teams"><div class="th"><h2>Teams · leads</h2></div><p class="dim">No leads pulse yet. The first hourly run fills this.</p></section>'
+    v=json.loads(LEADVIEW.read_text()); t=v.get("totals",{})
+    head=(f'<section class="tile" id="teams"><div class="th"><h2>Teams · leads</h2><span class="next">Salesforce pull {html.escape(v.get("generated",""))} · last {v.get("window_days",30)} days · {t.get("leads",0)} leads on the roster</span></div>'
+          f'<div class="filters"><button class="f on" data-f="ALL">All {t.get("leads",0)}</button>'+"".join(f'<button class="f" data-f="{k}"><span class="c {TAGC[k]}"></span>{TAGL[k]} {t.get(k,0)}</button>' for k in TAGC)+
+          '<span class="dim" style="font-size:12px;margin-left:8px">click a team, then an agent · hover a tag for the reason</span></div>')
+    out=[head]
+    for team in v["teams"]:
+        if not team["agents"]: continue
+        c=team["counts"]
+        out.append(f'<details class="team"><summary><b>{html.escape(team["team"])}</b> <span class="dim">{("lead "+html.escape(team["lead"])) if team["lead"] and not team["lead"].startswith("<<") else ""}</span> · {len(team["agents"])} agents · <b>{c.get("leads",0)}</b> leads {cnt(c)}</summary>')
+        for a in team["agents"]:
+            ac=a["counts"]
+            out.append(f'<details class="agent"><summary>{html.escape(a["name"])} · <b>{ac.get("leads",0)}</b> {cnt(ac)}</summary>')
+            if not a["leads"]: out.append('<p class="dim" style="margin:4px 0 8px 18px">no leads in the window</p></details>'); continue
+            rows=[]
+            for l in a["leads"]:
+                tags=" ".join(l["tags"]); why=html.escape("; ".join(l.get("why",[])))
+                tg="".join(f'<span class="tag {TAGC[k]}" title="{why}">{TAGL[k]}</span>' for k in l["tags"])
+                la=(f'{l["last_activity"]} ({int(l["last_activity_h"])} h)' if l.get("last_activity") else '<span class="neg">never</span>')
+                cm=html.escape(l.get("last_comment","")[:180]); cm=(cm+"…") if len(l.get("last_comment",""))>180 else cm
+                mt=html.escape(l.get("meeting","") or l.get("next_action","") or "")
+                rows.append(f'<tr data-tags="{tags}"><td>{html.escape(l["name"])}<div class="dim">{html.escape(l["source"])} · {html.escape(l["segment"])}{(" · "+html.escape(l["what"])) if l["what"] else ""}</div></td><td>{html.escape(l["status"] or "")}</td><td>{html.escape(l["created"])}</td><td>{la}</td><td class="cm">{cm}{(" <span class=dim>"+html.escape(l["last_comment_at"])+"</span>") if l.get("last_comment_at") else ""}</td><td>{mt}</td><td>{tg}</td></tr>')
+            out.append('<table class="leads"><thead><tr><th>Lead</th><th>Status</th><th>Came in</th><th>Last activity</th><th>Last comment</th><th>Meeting / next</th><th>Tags</th></tr></thead><tbody>'+"".join(rows)+'</tbody></table></details>')
+        out.append('</details>')
+    if v.get("outside_roster"): out.append('<p class="dim" style="font-size:12px;margin-top:10px">Not shown, owners outside the roster: '+html.escape(", ".join(f"{k} {n}" for k,n in v["outside_roster"].items()))+'</p>')
+    out.append('</section>')
+    return "".join(out)
+JS_TEAMS="""<script>
+document.querySelectorAll('.filters button.f').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filters button.f').forEach(x=>x.classList.remove('on'));b.classList.add('on');const f=b.dataset.f;
+document.querySelectorAll('table.leads tr[data-tags]').forEach(r=>{r.classList.toggle('hide',f!=='ALL'&&!(' '+r.dataset.tags+' ').includes(' '+f+' '))});
+document.querySelectorAll('details.agent').forEach(d=>{const vis=[...d.querySelectorAll('tr[data-tags]')].some(r=>!r.classList.contains('hide'));d.classList.toggle('hide',f!=='ALL'&&!vis)});
+document.querySelectorAll('details.team').forEach(d=>{const vis=[...d.querySelectorAll('details.agent')].some(a=>!a.classList.contains('hide'));d.classList.toggle('hide',f!=='ALL'&&!vis);if(f!=='ALL')d.open=true});});
+</script>"""
 JS_HOME="""<script>
 async function act(pid,what){if(what==='reject'&&!confirm('Reject '+pid+'?'))return;
 if(what==='approve'&&!confirm('Approve '+pid+' and post it now from your LinkedIn (through Chrome on the Mac)?'))return;
@@ -390,11 +439,11 @@ poll();
 </script>"""
 def home():
     tiles="".join(tile(d) for d in DEPTS)
-    body=(centre_tile()+decisions_html()+'<div class="board">'+tiles+'</div>'
+    body=(centre_tile()+decisions_html()+teams_html()+'<div class="board">'+tiles+'</div>'
           +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out without your click. Approve posts it from your own LinkedIn through Chrome on this Mac (Chrome must be open and signed in) and records the URL here. If that fails, the card offers your composer prefilled as before.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
           +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself; Approve on a LinkedIn post is the one click that posts, from your own account. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
-          +JS_HOME+JS_DEC)
+          +JS_HOME+JS_DEC+JS_TEAMS)
     return page(body)
 def ls_page(dept,rel):
     base=FOLDERS[dept]; p=safe_path(dept,rel)

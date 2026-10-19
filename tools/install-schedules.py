@@ -7,12 +7,14 @@ want={}
 for d in m["departments"]+([m["centre"]] if isinstance(m.get("centre"),dict) else []):
     for i,s in enumerate(d.get("schedule",[])):
         label=f"com.elysian.{d['id']}.{i}"
-        cal="".join(f"<dict><key>Weekday</key><integer>{wd}</integer><key>Hour</key><integer>{s['hour']}</integer><key>Minute</key><integer>{s['minute']}</integer></dict>" for wd in s["days"])
+        hours=s.get("hours") or [s["hour"]]          # "hours": [7,8,...,22] runs every hour in that list
+        cal="".join(f"<dict><key>Weekday</key><integer>{wd}</integer><key>Hour</key><integer>{h}</integer><key>Minute</key><integer>{s['minute']}</integer></dict>" for wd in s["days"] for h in hours)
+        runner=["{HQ}/tools/run-ondemand.sh",d['id'],s['recipe'],s['bot']] if s.get("bot") else ["{HQ}/tools/run-dept.sh",d['id'],s['recipe']]   # "bot": own heartbeat key, no inbox copy
         want[label]=f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>{label}</string>
-<key>ProgramArguments</key><array><string>/bin/zsh</string><string>{HQ}/tools/run-dept.sh</string><string>{d['id']}</string><string>{s['recipe']}</string></array>
+<key>ProgramArguments</key><array><string>/bin/zsh</string>{"".join(f"<string>{a.replace('{HQ}',str(HQ))}</string>" for a in runner)}</array>
 <key>StartCalendarInterval</key><array>{cal}</array>
 <key>StandardOutPath</key><string>{HOME}/Library/Logs/elysian-{d['id']}.log</string>
 <key>StandardErrorPath</key><string>{HOME}/Library/Logs/elysian-{d['id']}.log</string>
