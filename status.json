@@ -1,10 +1,10 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/agent-nudge.md",
+  "state": "ok",
+  "note": "agent-nudge 2026-10-19",
   "started": "2026-10-19 08:15",
-  "finished": "2026-10-19 07:23",
-  "last_ok": "2026-10-19 07:23"
+  "finished": "2026-10-19 08:15",
+  "last_ok": "2026-10-19 08:15"
  },
  "crm": {
   "state": "ok",
