@@ -61,5 +61,10 @@
   "started": "2026-10-17 15:37",
   "finished": "2026-10-17 15:39",
   "last_ok": "2026-10-17 15:39"
+ },
+ "leads-pulse": {
+  "state": "running",
+  "note": "do/leads-pulse.md",
+  "started": "2026-10-19 15:29"
  }
 }
