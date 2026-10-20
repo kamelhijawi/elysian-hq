@@ -58,6 +58,12 @@ for d in MAN["departments"]:
         if rid in nodes:
             nodes[rid]["group"]=d["id"]; link(d["id"],rid,"do")
     for sc in d.get("schedule",[]): link(f"bot:{d['id']}",f"{pf}:{sc['recipe']}","runs")
+# Moon Shelter's own bot and recipes (digest, hourly leads pulse)
+C=MAN.get("centre",{})
+if C:
+    add("bot:moonshelter","Moon Shelter bot","Bot","hq",7,f"claude · {sched_text(C)}"); link("orbit","bot:moonshelter","runs")
+    for pth in sorted((HQ.parent/C.get("folder","moonshelter")/"do").glob("*.md")):
+        rid=f"ms:do/{pth.name}"; add(rid,pth.stem,"Recipe","hq",6,f"do/{pth.name}"); link("orbit",rid,"do"); link("bot:moonshelter",rid,"runs")
 # team: agents + teams, grouped under their lead (leads per brain/ref/team.md)
 team=(B/"ref/team.md").read_text(errors="ignore")
 LEADS={}
@@ -70,6 +76,18 @@ if sp.exists():
     try: STATS=json.loads(sp.read_text())
     except Exception: STATS={}
 AST=STATS.get("agents",{})
+# hourly leads pulse (moonshelter/live/leads/latest.json, private): per-agent and per-team tag counts
+PKEYS=["pulse_leads","pulse_not_updated","pulse_positive","pulse_negative","pulse_meeting","pulse_potential"]
+PMAP={"leads":"pulse_leads","NOT_UPDATED":"pulse_not_updated","POSITIVE":"pulse_positive","NEGATIVE":"pulse_negative","MEETING":"pulse_meeting","POTENTIAL":"pulse_potential"}
+PULSE_A={}; PULSE_T={}; PULSE_AT=""
+lv=HQ.parent/"moonshelter/live/leads/latest.json"
+if lv.exists():
+    try:
+        LV=json.loads(lv.read_text()); PULSE_AT=LV.get("generated","")
+        for tm in LV.get("teams",[]):
+            PULSE_T[tm["team"]]={PMAP[k]:v for k,v in tm.get("counts",{}).items() if k in PMAP}
+            for ag in tm.get("agents",[]): PULSE_A[ag["name"]]={PMAP[k]:v for k,v in ag.get("counts",{}).items() if k in PMAP}
+    except Exception: pass
 KEYS=["leads_open","leads_new","leads_ytd","calls_ytd","calls_7d","whatsapp_ytd","meetings_ytd","closings_ytd","closings_value_ytd"]
 ROLL={}
 for l in team.splitlines():
@@ -83,11 +101,13 @@ for l in team.splitlines():
         role=c[4]+(" · "+c[5] if c[5] else "")
         aid=add(f"agent:{name}",name,"Agent","sales",2.5,role[:70])
         link(tid,aid,"member")
-        st=AST.get(name)
-        if st:
-            nodes[aid]["stats"]={k:st.get(k) for k in KEYS}
-            r=ROLL.setdefault(t,{k:0 for k in KEYS}); r["agents"]=r.get("agents",0)+1
+        st=AST.get(name) or {}; pz=PULSE_A.get(name) or {}
+        if st or pz:
+            nodes[aid]["stats"]={**{k:st.get(k) for k in KEYS},**{k:pz.get(k,0) for k in PKEYS}}
+            r=ROLL.setdefault(t,{k:0 for k in KEYS+PKEYS}); r["agents"]=r.get("agents",0)+(1 if st else 0)
             for k in KEYS: r[k]+= (st.get(k) or 0)
+            for k in PKEYS: r[k]+= (pz.get(k) or 0)
+        if pz: nodes[aid]["meta"]=(nodes[aid]["meta"]+f" · 30d leads {pz.get('pulse_leads',0)} · not updated {pz.get('pulse_not_updated',0)}")[:110]
         if lead and norm_name(lead)==norm_name(name): link(aid,tid,"leads"); nodes[aid]["size"]=5
 for t,r in ROLL.items():
     if f"team:{t}" in nodes: nodes[f"team:{t}"]["stats"]=r
@@ -143,7 +163,7 @@ def sh(c,cwd):
     try: return subprocess.check_output(c,cwd=cwd,shell=True,text=True).strip()
     except Exception: return ""
 status=json.loads((HQ/"status.json").read_text()) if (HQ/"status.json").exists() else {}
-meta={"status":status,"stats_built":STATS.get("built"),"stats_checks":STATS.get("checks"),"functions":FUNCS,"reports":REPORTS,"decisions_new":DEC_NEW,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
+meta={"status":status,"stats_built":STATS.get("built"),"pulse_at":PULSE_AT,"stats_checks":STATS.get("checks"),"functions":FUNCS,"reports":REPORTS,"decisions_new":DEC_NEW,"departments":[{"id":d["id"],"name":d["name"],"color":d["color"],"schedule":d.get("schedule",[])} for d in MAN["departments"]],"built":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"sales_commits":sh("git rev-list --count HEAD",B),"mkt_commits":sh("git rev-list --count HEAD",M)}
 G={"nodes":list(nodes.values()),"links":links,"meta":meta}
 def publicize(G):
     """Public copy: no agent names, no developer contacts or commission, no action text."""
@@ -308,9 +328,9 @@ function topLinks(n,k){return (adjacent.get(n.id)||[]).slice(0,k).map(x=>`${esca
 function escapeText(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 function showTip(n,x,y){if(!n){tip.style.display='none';return}tip.style.display='block';tip.style.left=(x+18)+'px';tip.style.top=(y+18)+'px';const extra='';tip.innerHTML=`<div class="n">${n.label}</div><div class="t">${n.type}</div>${extra}<div class="m">${n.meta||''}</div><div class="c">${deg[n.id]||0} connections<br>${topLinks(n,4).join('<br>')}</div><div class="c">click to focus</div>`}
-const SL={leads_open:'Leads open',leads_new:'of which New',leads_ytd:'Leads YTD',calls_ytd:'Calls YTD',calls_7d:'Calls, last 7d',whatsapp_ytd:'WhatsApp YTD',meetings_ytd:'Meetings YTD',closings_ytd:'Closings YTD',closings_value_ytd:'Closing value YTD'};
+const SL={leads_open:'Leads open',leads_new:'of which New',leads_ytd:'Leads YTD',calls_ytd:'Calls YTD',calls_7d:'Calls, last 7d',whatsapp_ytd:'WhatsApp YTD',meetings_ytd:'Meetings YTD',closings_ytd:'Closings YTD',closings_value_ytd:'Closing value YTD',pulse_leads:'Leads, last 30d (hourly pull)',pulse_not_updated:'Not updated',pulse_positive:'Positive',pulse_negative:'Negative',pulse_meeting:'Meeting booked',pulse_potential:'Meeting potential'};
 function statCard(n){const s=n.stats;const fmt=(k,v)=>v==null?'—':(k==='closings_value_ytd'?'AED '+Math.round(v).toLocaleString():Math.round(v).toLocaleString());
- return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">${Object.keys(SL).map(k=>`<div style="background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:7px 8px"><div style="font:500 16px IBM Plex Sans;color:${(k==='calls_7d'&&!s[k])||(k==='leads_new'&&s[k]>20)?'#F08C84':'var(--ink)'}">${fmt(k,s[k])}</div><div style="font-size:10.5px;color:var(--ink2)">${SL[k]}</div></div>`).join('')}</div>${s.agents?`<div style="font-size:11px;color:var(--dim);margin-top:6px">${s.agents} agents with Salesforce data</div>`:''}<div style="font-size:11px;color:var(--dim);margin-top:4px">Salesforce · built ${G.meta.stats_built||''}</div>`}
+ return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">${Object.keys(SL).map(k=>`<div style="background:rgba(6,9,15,.6);border:1px solid var(--line);border-radius:8px;padding:7px 8px"><div style="font:500 16px IBM Plex Sans;color:${(k==='calls_7d'&&!s[k])||(k==='leads_new'&&s[k]>20)||(k==='pulse_not_updated'&&s[k]>0)?'#F08C84':(k==='pulse_meeting'&&s[k]>0)?'#E8C168':'var(--ink)'}">${fmt(k,s[k])}</div><div style="font-size:10.5px;color:var(--ink2)">${SL[k]}</div></div>`).join('')}</div>${s.agents?`<div style="font-size:11px;color:var(--dim);margin-top:6px">${s.agents} agents with Salesforce data</div>`:''}<div style="font-size:11px;color:var(--dim);margin-top:4px">Salesforce · agent stats ${G.meta.stats_built||''} · hourly pull ${G.meta.pulse_at||'—'}</div>`}
 function showFocus(n){
  focus.replaceChildren();if(!n){focusedId=null;focus.style.display='none';return}focusedId=n.id;focus.style.display='block';
  const close=document.createElement('button');close.className='btn x';close.textContent='Close';close.onclick=()=>showFocus(null);focus.append(close);
