@@ -358,7 +358,7 @@ function nodeObj(n){const r=nodeSize(n)*(n.type==='Agent'?0.55:0.8);const col=ne
  return grp}
 function addStars(scene){if(efficient||!TH.stars.length)return;const n=1000,pos=new Float32Array(n*3),colr=new Float32Array(n*3);for(let i=0;i<n;i++){const R=900+Math.random()*900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);pos[i*3]=R*Math.sin(ph)*Math.cos(th);pos[i*3+1]=R*Math.sin(ph)*Math.sin(th);pos[i*3+2]=R*Math.cos(ph);const pal=TH.stars.length?TH.stars:['#000000'];const c=new THREE.Color(pal[Math.floor(Math.random()*pal.length)]);colr[i*3]=c.r;colr[i*3+1]=c.g;colr[i*3+2]=c.b}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(colr,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({size:2.2,vertexColors:true,transparent:true,opacity:.8,sizeAttenuation:true})))}
-function build3(){disposeGraphs();el.innerHTML='';g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
+function build3(){disposeGraphs();el.innerHTML='';g3=ForceGraph3D({rendererConfig:{alpha:true,antialias:true}})(el).width(innerWidth).height(innerHeight).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeThreeObject(nodeObj).nodeThreeObjectExtend(false)
  .linkCurvature(l=>l.rel.startsWith('fn:')?.35:.18).linkColor(LK).linkWidth(l=>l.rel.startsWith('fn:')?2.2:l.rel==='reports'?2.6:l.rel==='owns'?1.4:l.rel==='runs'?1:.45).linkOpacity(.6)
  .linkDirectionalParticles(l=>efficient?0:l.rel.startsWith('fn:')?5:l.rel==='reports'?6:l.rel==='owns'||l.rel==='runs'?3:l.rel==='loads'?2:0).linkDirectionalParticleWidth(l=>l.rel.startsWith('fn:')||l.rel==='reports'?3:1.6).linkDirectionalParticleSpeed(.005).linkDirectionalParticleColor(PK)
  .linkLabel(l=>`<span style="font:12px IBM Plex Mono;color:#93A4B3;background:rgba(10,16,26,.9);padding:3px 7px;border-radius:6px">${(l.source.label||l.source)} <b style="color:#C4B5FD">${l.rel.replace('fn:','hands over: ')}</b> ${(l.target.label||l.target)}</span>`)
@@ -369,7 +369,7 @@ function build3(){disposeGraphs();el.innerHTML='';g3=ForceGraph3D({rendererConfi
  g3.controls().autoRotate=rotating&&!efficient;g3.controls().autoRotateSpeed=.3;
  restoreView(g3,'3d');}
 
-function build2(){disposeGraphs();el.innerHTML='';g2=ForceGraph()(el).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(LK).linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>efficient?0:l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(PK)
+function build2(){disposeGraphs();el.innerHTML='';g2=ForceGraph()(el).width(innerWidth).height(innerHeight).backgroundColor('rgba(0,0,0,0)').graphData(visible()).nodeLabel(()=>null).nodeVal(n=>nodeSize(n)).nodeColor(n=>COL[n.type]).linkColor(LK).linkWidth(l=>l.rel==='owns'?1.5:.5).linkDirectionalParticles(l=>efficient?0:l.rel==='owns'||l.rel==='loads'?2:0).linkDirectionalParticleWidth(2).linkDirectionalParticleColor(PK)
  .nodeCanvasObjectMode(()=>'after').nodeCanvasObject((n,ctx,scale)=>{if(!labels||(efficient&&scale<2.2&&!['HQ','Department','Team'].includes(n.type)&&n.id!==focusedId))return;if(n.type==='Agent'&&!G.meta.private&&scale<2.2&&!query)return;const fs=Math.max(10,(n.type==='HQ'?22:n.type==='Department'?16:11))/scale;ctx.font=`${fs}px IBM Plex Sans`;ctx.textAlign='center';ctx.fillStyle=COL[n.type];ctx.fillText(n.label,n.x,n.y+nodeSize(n)/1.2+fs)})
  .onNodeHover(n=>{el.style.cursor=n?'pointer':null;if(n){const c=g2.graph2ScreenCoords(n.x,n.y);showTip(n,c.x,c.y)}else showTip(null)}).onNodeClick(n=>focusNode(n)).onBackgroundClick(()=>showFocus(null));
  g2.d3Force('charge').strength(-120);g2.d3Force('center',null);restoreView(g2,'2d')}
@@ -385,7 +385,7 @@ function disposeGraphs(){
 }
 function restoreView(g,m){const v=viewCache[m];if(v){if(m==='3d')g.cameraPosition(v.position,v.target,0);else{g.centerAt(v.center.x,v.center.y,0);g.zoom(v.zoom,0)}}else later(()=>g.zoomToFit(600,60),900);if(document.hidden)g.pauseAnimation()}
 function syncControls(){document.getElementById('b3').classList.toggle('on',mode==='3d');document.getElementById('b2').classList.toggle('on',mode==='2d');const e=document.getElementById('efficient');e.textContent='Efficiency: '+(efficient?'on':'off');e.setAttribute('aria-pressed',String(efficient));document.getElementById('rot').textContent=rotating?'Pause orbit':'Resume orbit';document.getElementById('rot').disabled=efficient||mode==='2d'}
-function rebuild(){mode==='3d'?build3():build2();syncControls();status()}
+function rebuild(){mode==='3d'?build3():build2();syncControls();status();setTimeout(ensureCanvas,300);setTimeout(ensureCanvas,1200)}
 document.getElementById('b3').onclick=()=>{if(mode!=='3d'){mode='3d';rebuild()}};
 document.getElementById('b2').onclick=()=>{if(mode!=='2d'){mode='2d';rebuild()}};
 document.getElementById('rot').onclick=()=>{rotating=!rotating;if(g3)g3.controls().autoRotate=rotating;syncControls()};
@@ -404,6 +404,8 @@ document.getElementById('reset').onclick=()=>{department='';departmentSelect.val
 const sel=document.getElementById('theme');sel.innerHTML=Object.entries(THEMES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');sel.value=themeKey;sel.onchange=e=>{applyTheme(e.target.value);rebuild()};
 applyTheme(themeKey);rebuild();
 addEventListener('resize',()=>{const g=g3||g2;if(g)g.width(innerWidth).height(innerHeight)});
+function ensureCanvas(){const g=g3||g2;if(!g)return;const c=el.querySelector('canvas');if(!c||c.width===0||c.height===0){g.width(innerWidth).height(innerHeight)}}
+setTimeout(ensureCanvas,300);setTimeout(ensureCanvas,1200);setTimeout(()=>{const g=g3||g2;if(g&&!(viewCache[mode]&&Object.keys(viewCache[mode]).length))g.zoomToFit(500,60)},1600);
 document.addEventListener('visibilitychange',()=>{const g=g3||g2;if(g){if(document.hidden)g.pauseAnimation();else{g.resumeAnimation();refreshStatus()}}});
 const freshness=document.getElementById('freshness');
 const statusFooter=[...document.getElementById('bots').children].slice(DEPTS.length);
