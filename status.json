@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "daily-pulse 2026-10-22",
-  "started": "2026-10-22 07:00",
+  "state": "running",
+  "note": "do/daily-leads-email.md",
+  "started": "2026-10-22 07:06",
   "finished": "2026-10-22 07:01",
   "last_ok": "2026-10-22 07:01"
  },
@@ -63,9 +63,9 @@
   "last_ok": "2026-10-17 15:39"
  },
  "leads-pulse": {
-  "state": "ok",
-  "note": "leads-pulse 2026-10-21 22:05",
-  "started": "2026-10-21 22:05",
+  "state": "running",
+  "note": "do/leads-pulse.md",
+  "started": "2026-10-22 07:06",
   "finished": "2026-10-21 22:05",
   "last_ok": "2026-10-21 22:05"
  }
