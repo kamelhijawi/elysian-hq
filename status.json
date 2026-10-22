@@ -63,9 +63,9 @@
   "last_ok": "2026-10-17 15:39"
  },
  "leads-pulse": {
-  "state": "failed",
-  "note": "exit 127 on do/leads-pulse.md",
-  "started": "2026-10-22 12:05",
+  "state": "running",
+  "note": "do/leads-pulse.md",
+  "started": "2026-10-22 13:05",
   "finished": "2026-10-22 12:05",
   "last_ok": "2026-10-22 11:06"
  }
