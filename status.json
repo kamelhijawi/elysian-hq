@@ -21,11 +21,11 @@
   "last_ok": "2026-10-21 07:31"
  },
  "moonshelter": {
-  "state": "running",
-  "note": "do/digest.md",
+  "state": "ok",
+  "note": "digest 2026-10-23",
   "started": "2026-10-23 07:30",
-  "finished": "2026-10-22 07:32",
-  "last_ok": "2026-10-22 07:32"
+  "finished": "2026-10-23 07:32",
+  "last_ok": "2026-10-23 07:32"
  },
  "crm-report": {
   "state": "ok",
