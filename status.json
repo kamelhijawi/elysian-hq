@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "agent-nudge 2026-10-22",
-  "started": "2026-10-22 08:15",
+  "state": "running",
+  "note": "do/daily-pulse.md",
+  "started": "2026-10-23 07:00",
   "finished": "2026-10-22 08:15",
   "last_ok": "2026-10-22 08:15"
  },
