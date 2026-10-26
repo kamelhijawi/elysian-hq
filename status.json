@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "weekly-meeting 2026-10-26",
-  "started": "2026-10-26 07:20",
+  "state": "running",
+  "note": "do/agent-nudge.md",
+  "started": "2026-10-26 08:15",
   "finished": "2026-10-26 07:22",
   "last_ok": "2026-10-26 07:22"
  },
