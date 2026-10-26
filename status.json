@@ -63,10 +63,10 @@
   "last_ok": "2026-10-17 15:39"
  },
  "leads-pulse": {
-  "state": "running",
-  "note": "do/leads-pulse.md",
+  "state": "ok",
+  "note": "leads-pulse 2026-10-26 21:05",
   "started": "2026-10-26 21:05",
-  "finished": "2026-10-26 20:06",
-  "last_ok": "2026-10-26 20:06"
+  "finished": "2026-10-26 21:06",
+  "last_ok": "2026-10-26 21:06"
  }
 }
