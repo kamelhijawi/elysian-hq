@@ -14,11 +14,11 @@
   "last_ok": "2026-10-30 06:30"
  },
  "marketing": {
-  "state": "running",
-  "note": "do/publisher.md",
+  "state": "ok",
+  "note": "publisher 2026-11-01",
   "started": "2026-11-01 10:00",
-  "finished": "2026-11-01 09:21",
-  "last_ok": "2026-11-01 09:21"
+  "finished": "2026-11-01 10:01",
+  "last_ok": "2026-11-01 10:01"
  },
  "moonshelter": {
   "state": "ok",
