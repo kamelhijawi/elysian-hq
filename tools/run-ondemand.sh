@@ -14,7 +14,11 @@ PY
 cd "/Users/kamel/elysian/$FOLDER" || { python3 $HQ/tools/heartbeat.py "$BOT" failed "folder missing"; exit 1; }
 python3 $HQ/tools/heartbeat.py "$BOT" running "$RECIPE"
 PROMPT="You are the $DEPT department bot for Elysian. Moon Shelter is Kamel; you report to him. Today is $TODAY, the time is $NOW Dubai. This is an ON-DEMAND run started by Kamel from the reports page. Read CLAUDE.md in this folder, then run the recipe $RECIPE exactly: load the files it names, follow its sequence, write the outputs it names, then commit as the recipe says. Read-only toward Salesforce and Gmail. Never send anything. Never write outside this folder. Do not overwrite live/report.md or live/handoffs/ unless the recipe says so. If a data source is unreachable, write what you could not get into the output and still commit. Finish with one line: DONE <files written>."
-claude -p "$PROMPT" --output-format text --allowedTools "$TOOLS" < /dev/null
-RC=$?
-if [ $RC -eq 0 ]; then python3 $HQ/tools/heartbeat.py "$BOT" ok "$(basename $RECIPE .md) $TODAY $NOW"; else python3 $HQ/tools/heartbeat.py "$BOT" failed "exit $RC on $RECIPE"; fi
+OUT=$(mktemp)
+claude -p "$PROMPT" --output-format text --allowedTools "$TOOLS" < /dev/null | tee "$OUT"
+RC=${pipestatus[1]:-$?}
+# a run that reports it could not reach Salesforce or Gmail is a failed run, whatever its exit code
+if grep -qiE "SKIPPED|unreachable|needs (re-?auth|authentication|to sign in)|connector (is )?(missing|not in (the )?session)|no connector" "$OUT"; then NODATA=1; else NODATA=0; fi
+rm -f "$OUT"
+if [ $RC -eq 0 ] && [ $NODATA -eq 0 ]; then python3 $HQ/tools/heartbeat.py "$BOT" ok "$(basename $RECIPE .md) $TODAY $NOW"; elif [ $NODATA -eq 1 ]; then python3 $HQ/tools/heartbeat.py "$BOT" failed "no data: a connector was unreachable ($(basename $RECIPE .md) $TODAY $NOW)"; else python3 $HQ/tools/heartbeat.py "$BOT" failed "exit $RC on $RECIPE"; fi
 exit $RC

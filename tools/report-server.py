@@ -95,6 +95,7 @@ details.agent{margin:6px 0 6px 18px;border-left:2px solid var(--line);padding-le
 .tag{display:inline-block;font-size:11px;border:1px solid;border-radius:999px;padding:1px 7px;margin:1px 2px 1px 0;white-space:nowrap}
 table.leads{margin:6px 0 10px;font-size:13px}table.leads td{vertical-align:top}table.leads td.cm{max-width:360px;color:var(--ink)}table.leads .dim{font-size:11px}
 .hide{display:none}
+.alert{background:#3a1416;border:1px solid var(--bad);color:#ffd9d9;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:14px}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -437,9 +438,19 @@ async function poll(){const s=await (await fetch('/status')).json();let any=fals
 if(any)setTimeout(poll,8000);else if(window._wasRunning)location.reload();window._wasRunning=any}
 poll();
 </script>"""
+def alert_html():
+    msgs=[]
+    try:
+        v=json.loads(LEADVIEW.read_text()); gen=datetime.datetime.strptime(v["generated"],"%Y-%m-%d %H:%M"); age=(datetime.datetime.now()-gen).total_seconds()/3600
+        if age>3: msgs.append(f"Lead data is {int(age)} hours old (last Salesforce pull {v['generated']}).")
+    except Exception: pass
+    for k,b in status().items():
+        if b.get("state")=="failed" and "connector" in (b.get("note") or "").lower(): msgs.append(f"{k}: {b['note']} at {b.get('finished','')}.")
+    if not msgs: return ""
+    return '<div class="alert">'+" ".join(html.escape(m) for m in msgs)+' Reconnect the Salesforce Read Only connector in claude.ai connector settings; the next run picks up where it left off.</div>'
 def home():
     tiles="".join(tile(d) for d in DEPTS)
-    body=(centre_tile()+decisions_html()+teams_html()+'<div class="board">'+tiles+'</div>'
+    body=(alert_html()+centre_tile()+decisions_html()+teams_html()+'<div class="board">'+tiles+'</div>'
           +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out without your click. Approve posts it from your own LinkedIn through Chrome on this Mac (Chrome must be open and signed in) and records the URL here. If that fails, the card offers your composer prefilled as before.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
           +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself; Approve on a LinkedIn post is the one click that posts, from your own account. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
