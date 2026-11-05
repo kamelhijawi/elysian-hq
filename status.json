@@ -7,10 +7,10 @@
   "last_ok": "2026-11-04 07:01"
  },
  "crm": {
-  "state": "running",
-  "note": "do/hygiene-sweep.md",
+  "state": "failed",
+  "note": "no data: a connector was unreachable (hygiene-sweep 2026-11-05)",
   "started": "2026-11-05 06:30",
-  "finished": "2026-11-04 06:30",
+  "finished": "2026-11-05 06:31",
   "last_ok": "2026-11-03 06:30"
  },
  "marketing": {
