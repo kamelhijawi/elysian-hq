@@ -1,9 +1,9 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/agent-nudge.md",
+  "state": "failed",
+  "note": "no data: a connector was unreachable (agent-nudge 2026-11-05)",
   "started": "2026-11-05 08:15",
-  "finished": "2026-11-05 07:11",
+  "finished": "2026-11-05 08:15",
   "last_ok": "2026-11-05 07:00"
  },
  "crm": {
