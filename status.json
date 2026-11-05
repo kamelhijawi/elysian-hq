@@ -1,9 +1,9 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/daily-leads-email.md",
+  "state": "failed",
+  "note": "no data: a connector was unreachable (daily-leads-email 2026-11-05)",
   "started": "2026-11-05 07:05",
-  "finished": "2026-11-05 07:00",
+  "finished": "2026-11-05 07:05",
   "last_ok": "2026-11-05 07:00"
  },
  "crm": {
