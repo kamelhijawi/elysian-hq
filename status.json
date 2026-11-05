@@ -1,9 +1,9 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/agent-stats.md",
+  "state": "failed",
+  "note": "no data: a connector was unreachable (agent-stats 2026-11-05)",
   "started": "2026-11-05 07:10",
-  "finished": "2026-11-05 07:05",
+  "finished": "2026-11-05 07:11",
   "last_ok": "2026-11-05 07:00"
  },
  "crm": {
