@@ -7,11 +7,11 @@
   "last_ok": "2026-11-05 07:00"
  },
  "crm": {
-  "state": "running",
-  "note": "do/hygiene-sweep.md",
+  "state": "ok",
+  "note": "hygiene-sweep 2026-11-06",
   "started": "2026-11-06 06:30",
-  "finished": "2026-11-05 06:31",
-  "last_ok": "2026-11-03 06:30"
+  "finished": "2026-11-06 06:34",
+  "last_ok": "2026-11-06 06:34"
  },
  "marketing": {
   "state": "failed",
