@@ -1,10 +1,10 @@
 {
  "sales": {
-  "state": "running",
-  "note": "do/daily-pulse.md",
+  "state": "ok",
+  "note": "daily-pulse 2026-11-06",
   "started": "2026-11-06 07:00",
-  "finished": "2026-11-05 08:15",
-  "last_ok": "2026-11-05 07:00"
+  "finished": "2026-11-06 07:02",
+  "last_ok": "2026-11-06 07:02"
  },
  "crm": {
   "state": "ok",
