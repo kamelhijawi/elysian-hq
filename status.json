@@ -21,9 +21,9 @@
   "last_ok": "2026-11-04 07:01"
  },
  "moonshelter": {
-  "state": "failed",
-  "note": "no data: a connector was unreachable (digest 2026-11-05)",
-  "started": "2026-11-05 07:30",
+  "state": "running",
+  "note": "do/digest.md",
+  "started": "2026-11-06 07:30",
   "finished": "2026-11-05 07:31",
   "last_ok": "2026-11-03 07:31"
  },
