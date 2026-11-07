@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "agent-nudge 2026-11-06",
-  "started": "2026-11-06 08:15",
+  "state": "running",
+  "note": "do/daily-leads-email.md",
+  "started": "2026-11-07 07:05",
   "finished": "2026-11-06 08:16",
   "last_ok": "2026-11-06 08:16"
  },
