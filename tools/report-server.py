@@ -444,16 +444,23 @@ def alert_html():
         v=json.loads(LEADVIEW.read_text()); gen=datetime.datetime.strptime(v["generated"],"%Y-%m-%d %H:%M"); age=(datetime.datetime.now()-gen).total_seconds()/3600
         if age>3: msgs.append(f"Lead data is {int(age)} hours old (last Salesforce pull {v['generated']}).")
     except Exception: pass
-    for k,b in status().items():
-        if b.get("state")=="failed" and "connector" in (b.get("note") or "").lower(): msgs.append(f"{k}: {b['note']} at {b.get('finished','')}.")
+    st=status(); ok_times=[str(b.get("finished","")) for b in st.values() if b.get("state")=="ok" and b.get("finished")]
+    back=max(ok_times) if ok_times else ""   # latest successful run: the connector was reachable then
+    reconnect=bool(msgs)
+    for k,b in st.items():
+        if b.get("state")=="failed" and "connector" in (b.get("note") or "").lower():
+            fin=str(b.get("finished",""))
+            if back and back>fin: msgs.append(f"{k}: {b['note']} at {fin}. Salesforce has been readable again since {back}, so {k} catches up at its next scheduled run; nothing to reconnect.")
+            else: msgs.append(f"{k}: {b['note']} at {fin}."); reconnect=True
     if not msgs: return ""
-    return '<div class="alert">'+" ".join(html.escape(m) for m in msgs)+' Reconnect the Salesforce Read Only connector in claude.ai connector settings; the next run picks up where it left off.</div>'
+    tail=" Reconnect the Salesforce Read Only connector in claude.ai connector settings; the next run picks up where it left off." if reconnect else ""
+    return '<div class="alert">'+" ".join(html.escape(m) for m in msgs)+html.escape(tail)+'</div>'
 def home():
     tiles="".join(tile(d) for d in DEPTS)
     body=(alert_html()+centre_tile()+decisions_html()+teams_html()+'<div class="board">'+tiles+'</div>'
-          +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out without your click. Approve posts it from your own LinkedIn through Chrome on this Mac (Chrome must be open and signed in) and records the URL here. If that fails, the card offers your composer prefilled as before.</p>'
+          +'<h2 class="sec" id="publishing">Publish queue · LinkedIn</h2><p class="dim" style="margin:0 0 12px;font-size:13px">Nothing goes out from this page. A post is published only when you say "post it P-n" in a live chat session; Claude then posts it from your own LinkedIn through Chrome on this Mac and records the URL here.</p>'
           +'<div class="grid">'+queue_html()+'</div>'
-          +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything by itself; Approve on a LinkedIn post is the one click that posts, from your own account. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
+          +'<p class="dim" style="font-size:12px;margin-top:28px">Bots run on Claude headless and read Salesforce read-only. Nothing on this page sends, posts or changes anything; the board is read-only, and every decision or "post it" is given in chat. <a href="/graph" style="color:var(--gold)">3D map</a></p>'
           +JS_HOME+JS_DEC+JS_TEAMS)
     return page(body)
 def ls_page(dept,rel):
@@ -613,11 +620,19 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self.send("not found","text/plain",404)
 if __name__=="__main__":
     http.server.ThreadingHTTPServer.allow_reuse_address=True
-    try:
-        srv=http.server.ThreadingHTTPServer(("127.0.0.1",PORT),H)
-    except OSError as e:
-        if e.errno==48: print("Moon Shelter reports is already running: open http://127.0.0.1:%d"%PORT); sys.exit(0)
-        raise
-    print("Moon Shelter reports on http://127.0.0.1:%d"%PORT); sys.stdout.flush()
+    # Port busy means another copy is serving (a hand-started one, or the old copy still shutting down after a
+    # launchctl kickstart -k). Never exit 0 here: launchd (KeepAlive SuccessfulExit=false) treats that as a clean
+    # stop and does not restart us, so the board went dark when the other copy died (seen 2026-11-07).
+    # Wait and take the port over as soon as it frees up.
+    waited=False
+    while True:
+        try:
+            srv=http.server.ThreadingHTTPServer(("127.0.0.1",PORT),H); break
+        except OSError as e:
+            if e.errno!=48: raise
+            if not waited:
+                print(time.strftime("%Y-%m-%d %H:%M:%S"),"Moon Shelter reports: port %d is busy, another copy is serving; waiting to take over"%PORT); sys.stdout.flush(); waited=True
+            time.sleep(15)
+    print(time.strftime("%Y-%m-%d %H:%M:%S"),"Moon Shelter reports on http://127.0.0.1:%d"%PORT); sys.stdout.flush()
     threading.Thread(target=serve_tailscale,daemon=True).start()
     srv.serve_forever()
