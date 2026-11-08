@@ -14,11 +14,11 @@
   "last_ok": "2026-11-06 06:34"
  },
  "marketing": {
-  "state": "running",
-  "note": "do/market-analyst.md",
+  "state": "ok",
+  "note": "market-analyst 2026-11-08",
   "started": "2026-11-08 08:00",
-  "finished": "2026-11-04 07:31",
-  "last_ok": "2026-11-04 07:01"
+  "finished": "2026-11-08 08:03",
+  "last_ok": "2026-11-08 08:03"
  },
  "moonshelter": {
   "state": "ok",
