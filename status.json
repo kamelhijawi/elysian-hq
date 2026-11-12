@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "failed",
-  "note": "exit 1 on do/agent-stats.md",
-  "started": "2026-11-12 07:10",
+  "state": "running",
+  "note": "do/agent-nudge.md",
+  "started": "2026-11-12 08:15",
   "finished": "2026-11-12 07:10",
   "last_ok": "2026-11-10 08:15"
  },
