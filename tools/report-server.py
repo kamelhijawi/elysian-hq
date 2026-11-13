@@ -482,7 +482,7 @@ def alert_html():
         # the one failure that stops every department at once: say it first and say what fixes it
         down=[k for k in [d["id"] for d in DEPTS]+["moonshelter","leads-pulse"] if st.get(k,{}).get("state")=="failed"]
         head="The Claude login on this Mac has expired, so every scheduled run fails until you sign in again"+(" (failed now: "+", ".join(down)+")" if down else "")+"."
-        return '<div class="alert">'+html.escape(head)+" "+" ".join(html.escape(m) for m in msgs)+LOGIN_FIX+'</div>'
+        return '<div class="alert">'+html.escape(" ".join([head]+msgs))+LOGIN_FIX+'</div>'
     if stale and not reconnect:
         b=st.get("leads-pulse",{})
         msgs.append(f"The hourly pull last finished {b.get('finished','never')} as {b.get('state','unknown')}"+(f": {b['note']}" if b.get("note") else "")+". If the Mac was asleep it catches up at the next :05.")
