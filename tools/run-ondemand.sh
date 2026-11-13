@@ -19,6 +19,8 @@ claude -p "$PROMPT" --output-format text --allowedTools "$TOOLS" < /dev/null | t
 RC=${pipestatus[1]:-$?}
 # a run that reports it could not reach Salesforce or Gmail is a failed run, whatever its exit code
 if grep -qiE "SKIPPED|unreachable|needs (re-?auth|authentication|to sign in)|connector (is )?(missing|not in (the )?session)|no connector" "$OUT"; then NODATA=1; else NODATA=0; fi
+# a run that never started because the Claude login on this Mac is gone: record that, it stops every department at once
+if [ $RC -ne 0 ] && grep -qiE "Failed to authenticate|Not logged in|Please run /login|Invalid API key|OAuth token (has )?expired|authentication_error" "$OUT"; then AUTH=1; else AUTH=0; fi
 rm -f "$OUT"
-if [ $RC -eq 0 ] && [ $NODATA -eq 0 ]; then python3 $HQ/tools/heartbeat.py "$BOT" ok "$(basename $RECIPE .md) $TODAY $NOW"; elif [ $NODATA -eq 1 ]; then python3 $HQ/tools/heartbeat.py "$BOT" failed "no data: a connector was unreachable ($(basename $RECIPE .md) $TODAY $NOW)"; else python3 $HQ/tools/heartbeat.py "$BOT" failed "exit $RC on $RECIPE"; fi
+if [ $AUTH -eq 1 ]; then python3 $HQ/tools/heartbeat.py "$BOT" failed "Claude login expired on this Mac: run claude auth login ($(basename $RECIPE .md) $TODAY $NOW)"; elif [ $RC -eq 0 ] && [ $NODATA -eq 0 ]; then python3 $HQ/tools/heartbeat.py "$BOT" ok "$(basename $RECIPE .md) $TODAY $NOW"; elif [ $NODATA -eq 1 ]; then python3 $HQ/tools/heartbeat.py "$BOT" failed "no data: a connector was unreachable ($(basename $RECIPE .md) $TODAY $NOW)"; else python3 $HQ/tools/heartbeat.py "$BOT" failed "exit $RC on $RECIPE"; fi
 exit $RC

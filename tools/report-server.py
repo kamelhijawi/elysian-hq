@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Moon Shelter reports page. Local only (127.0.0.1:8770). Press a button, a department bot runs its on-demand recipe
 on Claude headless, and the report renders here as a web page. Nothing here is public; reports contain names."""
-import http.server, json, pathlib, subprocess, threading, datetime, html, re, urllib.parse, sys, time
+import http.server, json, pathlib, subprocess, threading, datetime, html, re, urllib.parse, sys, time, os
 from marketing_workspace import snapshot as marketing_snapshot
 from orbit_workspace import snapshot as orbit_snapshot
 E=pathlib.Path.home()/"elysian"; HQ=E/"hq"; PORT=8770
@@ -96,6 +96,8 @@ details.agent{margin:6px 0 6px 18px;border-left:2px solid var(--line);padding-le
 table.leads{margin:6px 0 10px;font-size:13px}table.leads td{vertical-align:top}table.leads td.cm{max-width:360px;color:var(--ink)}table.leads .dim{font-size:11px}
 .hide{display:none}
 .alert{background:#3a1416;border:1px solid var(--bad);color:#ffd9d9;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:14px}
+.alert.warn{background:#33290f;border-color:var(--gold);color:#ffe9b8}
+.alert code{background:#0006;border-radius:5px;padding:1px 6px;font-size:13px}
 @media(max-width:600px){main{padding:16px}article{padding:18px}}
 """
 PRINT="""
@@ -438,23 +440,61 @@ async function poll(){const s=await (await fetch('/status')).json();let any=fals
 if(any)setTimeout(poll,8000);else if(window._wasRunning)location.reload();window._wasRunning=any}
 poll();
 </script>"""
+_AUTH={"t":0.0,"v":None}
+def claude_auth():
+    """What `claude auth status` says about the login the scheduled runs use on this Mac: {'loggedIn':..,'loginExpiresAt':..}.
+    Cached (1 minute while logged out, so the alert clears soon after a sign-in; 10 minutes otherwise). None if the CLI cannot be asked."""
+    now=time.time()
+    if _AUTH["v"] is not None and now-_AUTH["t"]<(60 if _AUTH["v"].get("loggedIn") is False else 600): return _AUTH["v"]
+    v=None
+    try:
+        env=dict(os.environ); env["PATH"]=str(pathlib.Path.home()/".local/bin")+":/opt/homebrew/bin:/usr/local/bin:"+env.get("PATH","/usr/bin:/bin")
+        r=subprocess.run(["claude","auth","status"],capture_output=True,text=True,timeout=8,env=env,stdin=subprocess.DEVNULL)
+        v=json.loads(r.stdout)
+        if not isinstance(v,dict): v=None
+    except Exception: v=None
+    _AUTH["t"]=now; _AUTH["v"]=v; return v
+def login_expiry(a):
+    """loginExpiresAt as a local naive datetime, or None when it is absent or in a shape this does not know."""
+    x=(a or {}).get("loginExpiresAt")
+    try:
+        if isinstance(x,(int,float)): return datetime.datetime.fromtimestamp(x/1000 if x>1e11 else x)
+        if isinstance(x,str) and x: return datetime.datetime.fromisoformat(x.replace("Z","+00:00")).astimezone().replace(tzinfo=None)
+    except Exception: pass
+    return None
+LOGIN_FIX=' To fix it: open Terminal, run <code>claude auth login</code> and approve in the browser. The hourly lead pull resumes at the next :05 and each department at its next scheduled run.'
 def alert_html():
-    msgs=[]
+    msgs=[]; stale=False
+    a=claude_auth(); logged_out=bool(a) and a.get("loggedIn") is False
     try:
         v=json.loads(LEADVIEW.read_text()); gen=datetime.datetime.strptime(v["generated"],"%Y-%m-%d %H:%M"); age=(datetime.datetime.now()-gen).total_seconds()/3600
-        if age>3: msgs.append(f"Lead data is {int(age)} hours old (last Salesforce pull {v['generated']}).")
+        if age>3: msgs.append(f"Lead data is {int(age)} hours old (last Salesforce pull {v['generated']})."); stale=True
     except Exception: pass
     st=status(); ok_times=[str(b.get("finished","")) for b in st.values() if b.get("state")=="ok" and b.get("finished")]
     back=max(ok_times) if ok_times else ""   # latest successful run: the connector was reachable then
-    reconnect=bool(msgs)
+    reconnect=False
     for k,b in st.items():
         if b.get("state")=="failed" and "connector" in (b.get("note") or "").lower():
             fin=str(b.get("finished",""))
             if back and back>fin: msgs.append(f"{k}: {b['note']} at {fin}. Salesforce has been readable again since {back}, so {k} catches up at its next scheduled run; nothing to reconnect.")
             else: msgs.append(f"{k}: {b['note']} at {fin}."); reconnect=True
-    if not msgs: return ""
-    tail=" Reconnect the Salesforce Read Only connector in claude.ai connector settings; the next run picks up where it left off." if reconnect else ""
-    return '<div class="alert">'+" ".join(html.escape(m) for m in msgs)+html.escape(tail)+'</div>'
+    if logged_out:
+        # the one failure that stops every department at once: say it first and say what fixes it
+        down=[k for k in [d["id"] for d in DEPTS]+["moonshelter","leads-pulse"] if st.get(k,{}).get("state")=="failed"]
+        head="The Claude login on this Mac has expired, so every scheduled run fails until you sign in again"+(" (failed now: "+", ".join(down)+")" if down else "")+"."
+        return '<div class="alert">'+html.escape(head)+" "+" ".join(html.escape(m) for m in msgs)+LOGIN_FIX+'</div>'
+    if stale and not reconnect:
+        b=st.get("leads-pulse",{})
+        msgs.append(f"The hourly pull last finished {b.get('finished','never')} as {b.get('state','unknown')}"+(f": {b['note']}" if b.get("note") else "")+". If the Mac was asleep it catches up at the next :05.")
+    out=""
+    if msgs:
+        tail=" Reconnect the Salesforce Read Only connector in claude.ai connector settings; the next run picks up where it left off." if reconnect else ""
+        out='<div class="alert">'+" ".join(html.escape(m) for m in msgs)+html.escape(tail)+'</div>'
+    exp=login_expiry(a)
+    if exp:
+        days=(exp-datetime.datetime.now()).total_seconds()/86400
+        if 0<days<=7: out+='<div class="alert warn">'+html.escape(f"The Claude login on this Mac expires on {exp.strftime('%a %d %b %H:%M')} ({int(days)} days). After that every scheduled run stops.")+' Sign in again before then: open Terminal and run <code>claude auth login</code>.</div>'
+    return out
 def home():
     tiles="".join(tile(d) for d in DEPTS)
     body=(alert_html()+centre_tile()+decisions_html()+teams_html()+'<div class="board">'+tiles+'</div>'
