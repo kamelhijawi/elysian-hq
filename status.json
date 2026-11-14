@@ -14,9 +14,9 @@
   "last_ok": "2026-11-14 16:48"
  },
  "marketing": {
-  "state": "failed",
-  "note": "exit 1 on do/publisher.md",
-  "started": "2026-11-11 07:30",
+  "state": "running",
+  "note": "do/reporter.md",
+  "started": "2026-11-14 16:55",
   "finished": "2026-11-11 07:30",
   "last_ok": "2026-11-09 06:47"
  },
