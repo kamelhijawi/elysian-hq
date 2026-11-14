@@ -1,8 +1,8 @@
 {
  "sales": {
-  "state": "ok",
-  "note": "daily-pulse 2026-11-14",
-  "started": "2026-11-14 16:48",
+  "state": "running",
+  "note": "do/agent-stats.md",
+  "started": "2026-11-14 16:50",
   "finished": "2026-11-14 16:50",
   "last_ok": "2026-11-14 16:50"
  },
