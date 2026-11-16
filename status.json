@@ -14,9 +14,9 @@
   "last_ok": "2026-11-16 06:33"
  },
  "marketing": {
-  "state": "ok",
-  "note": "publisher 2026-11-15",
-  "started": "2026-11-15 10:00",
+  "state": "running",
+  "note": "do/reporter.md",
+  "started": "2026-11-16 06:45",
   "finished": "2026-11-15 10:01",
   "last_ok": "2026-11-15 10:01"
  },
