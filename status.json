@@ -14,11 +14,11 @@
   "last_ok": "2026-11-18 06:34"
  },
  "marketing": {
-  "state": "running",
-  "note": "do/production-director.md",
+  "state": "ok",
+  "note": "production-director 2026-11-18",
   "started": "2026-11-18 07:00",
-  "finished": "2026-11-16 06:47",
-  "last_ok": "2026-11-16 06:47"
+  "finished": "2026-11-18 07:01",
+  "last_ok": "2026-11-18 07:01"
  },
  "moonshelter": {
   "state": "ok",
